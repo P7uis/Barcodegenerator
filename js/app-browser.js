@@ -460,9 +460,9 @@ function renderBarcodeToCanvas(canvasEl, text, JsBarcode, options) {
   });
 }
 
-const THEME_KEY = "mediacapture-theme";
-const LANG_KEY = "mediacapture-lang";
-const CAL_KEY = "mediacapture-cmcalibration";
+const THEME_KEY = "barcode-creator-theme";
+const LANG_KEY = "barcode-creator-lang";
+const CAL_KEY = "barcode-creator-cmcalibration";
 const CAL_BAR_TARGET_CM = 5;
 const PRINT_DPI = 300;
 const CM_PER_INCH = 2.54;

@@ -4,8 +4,8 @@ import { loadQrModule } from "./qr-load.js";
 import { loadJsPdf } from "./pdf-load.js";
 import { injectPngDpi } from "./png-dpi.js";
 
-const THEME_KEY = "mediacapture-theme";
-const LANG_KEY = "mediacapture-lang";
+const THEME_KEY = "barcode-creator-theme";
+const LANG_KEY = "barcode-creator-lang";
 const PRINT_DPI = 300;
 const CM_PER_INCH = 2.54;
 const PX_PER_CM = PRINT_DPI / CM_PER_INCH;
@@ -45,8 +45,8 @@ let currentLanguage = "en";
 
 const I18N = {
   en: {
-    pageTitle: "QR Creator Tool",
-    headerTitle: "QR Creator Tool",
+    pageTitle: "Barcode Creator Tool",
+    headerTitle: "Barcode Creator Tool",
     lead:
       "Generate a QR code for a web link or plain text. You can shorten links, upload a center logo, and customize the QR style.",
     languageLabel: "Language",
@@ -98,8 +98,8 @@ const I18N = {
     errPdfTooLarge: "For A4 export, choose a size up to 20 cm.",
   },
   nl: {
-    pageTitle: "QR Maker Tool",
-    headerTitle: "QR Maker Tool",
+    pageTitle: "Barcode Maker Tool",
+    headerTitle: "Barcode Maker Tool",
     lead:
       "Genereer een QR-code voor een weblink of vrije tekst. Je kunt links inkorten, een centraal logo uploaden en de QR-stijl aanpassen.",
     languageLabel: "Taal",
@@ -151,8 +151,8 @@ const I18N = {
     errPdfTooLarge: "Kies voor A4-export een grootte van maximaal 20 cm.",
   },
   de: {
-    pageTitle: "QR-Generator",
-    headerTitle: "QR-Generator",
+    pageTitle: "Barcode-Generator",
+    headerTitle: "Barcode-Generator",
     lead:
       "Erstelle einen QR-Code fuer einen Weblink oder freien Text. Du kannst Links kuerzen, ein zentrales Logo hochladen und den QR-Stil anpassen.",
     languageLabel: "Sprache",
