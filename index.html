@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>QR Creator Tool</title>
+  <title>Barcode Creator Tool</title>
   <script>
     (function () {
       try {
@@ -52,25 +52,37 @@
 
   <main class="app-shell">
     <header class="topbar">
-      <h1 id="header-title">QR Creator Tool (Work in Progress)</h1>
+      <div class="barcode-type-field" role="group" aria-labelledby="barcode-type-label">
+        <label id="barcode-type-label" for="barcode-type">Barcode type</label>
+        <select id="barcode-type">
+          <option id="bt-opt-qr" value="qr">QR Code</option>
+          <option id="bt-opt-code128" value="code128">Code 128</option>
+          <option id="bt-opt-ean13" value="ean13">EAN-13</option>
+          <option id="bt-opt-ean8" value="ean8">EAN-8</option>
+          <option id="bt-opt-upca" value="upca">UPC-A</option>
+          <option id="bt-opt-code39" value="code39">Code 39</option>
+          <option id="bt-opt-itf" value="itf">ITF (2 of 5)</option>
+          <option id="bt-opt-codabar" value="codabar">Codabar</option>
+        </select>
+      </div>
     </header>
 
     <p id="lead-copy" class="lead">
-      Generate a QR code for a web link or plain text. You can shorten links, upload a center logo, and style QR elements.
+      Generate a QR code or a common 1D barcode. You can shorten links, upload a center logo (QR only), and style QR elements.
     </p>
 
     <div class="workspace">
       <section class="editor-column">
         <section class="panel">
           <div class="field-grid">
-            <div class="field">
+            <div class="field qr-only">
               <label id="mode-label" for="mode-select">Content type</label>
               <select id="mode-select">
                 <option id="mode-opt-url" value="url">Web link</option>
                 <option id="mode-opt-text" value="text">Plain text</option>
               </select>
             </div>
-            <div class="field">
+            <div class="field qr-only">
               <label id="shape-label" for="shape-select">QR style</label>
               <select id="shape-select">
                 <option id="shape-opt-square" value="square">Square</option>
@@ -85,29 +97,31 @@
             <input id="payload" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/page" />
           </div>
 
-          <div class="option-row">
-            <input type="checkbox" id="opt-shorten" />
-            <label id="opt-shorten-label" for="opt-shorten">Shorten link first (is.gd, then v.gd)</label>
-          </div>
-          <p id="shorten-hint" class="option-hint">Runs only for web links when you click Generate.</p>
+          <div class="qr-only">
+            <div class="option-row">
+              <input type="checkbox" id="opt-shorten" />
+              <label id="opt-shorten-label" for="opt-shorten">Shorten link first (is.gd, then v.gd)</label>
+            </div>
+            <p id="shorten-hint" class="option-hint">Runs only for web links when you click Generate.</p>
 
-          <div class="option-row">
-            <input type="checkbox" id="opt-logo" />
-            <label id="opt-logo-label" for="opt-logo">Center logo on the QR</label>
-          </div>
-          <p id="logo-hint" class="option-hint">
-            Uses high error correction. QR dots under the visible logo pixels are removed. If both URL and file are set, URL is used.
-          </p>
+            <div class="option-row">
+              <input type="checkbox" id="opt-logo" />
+              <label id="opt-logo-label" for="opt-logo">Center logo on the QR</label>
+            </div>
+            <p id="logo-hint" class="option-hint">
+              Uses high error correction. QR dots under the visible logo pixels are removed. If both URL and file are set, URL is used.
+            </p>
 
-          <div class="logo-block">
-            <label id="logo-url-label" class="sub-label" for="logo-url">Logo image URL (https, optional)</label>
-            <input id="logo-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/logo.png" disabled />
-            <label id="logo-file-label" class="sub-label" for="logo-file">Or local file</label>
-            <input type="file" id="logo-file" accept="image/*" disabled />
-            <label id="logo-size-label" class="sub-label" for="logo-size">Center logo max side (cm)</label>
-            <div class="logo-size-row">
-              <input id="logo-size" type="range" min="0.5" max="1.1" step="0.1" value="0.9" disabled />
-              <span id="logo-size-value">0.9 cm</span>
+            <div class="logo-block">
+              <label id="logo-url-label" class="sub-label" for="logo-url">Logo image URL (https, optional)</label>
+              <input id="logo-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/logo.png" disabled />
+              <label id="logo-file-label" class="sub-label" for="logo-file">Or local file</label>
+              <input type="file" id="logo-file" accept="image/*" disabled />
+              <label id="logo-size-label" class="sub-label" for="logo-size">Center logo max side (cm)</label>
+              <div class="logo-size-row">
+                <input id="logo-size" type="range" min="0.5" max="1.1" step="0.1" value="0.9" disabled />
+                <span id="logo-size-value">0.9 cm</span>
+              </div>
             </div>
           </div>
         </section>
@@ -129,6 +143,26 @@
       </section>
 
       <section class="preview-column">
+        <div class="calibrate-row" aria-label="Screen calibration">
+          <div
+            id="calibrate-track"
+            class="calibrate-track"
+            role="slider"
+            tabindex="0"
+            aria-valuemin="80"
+            aria-valuemax="900"
+            aria-valuenow="189"
+            aria-label="Drag the bar's right edge to 5 cm on your ruler"
+          >
+            <div id="calibrate-bar" class="calibrate-bar">
+              <span class="calibrate-bar-label">5&nbsp;cm</span>
+              <span class="calibrate-handle" aria-hidden="true"></span>
+            </div>
+          </div>
+          <p id="calibrate-hint" class="calibrate-hint">
+            Line up the bar's left edge with 0 on a physical ruler, then drag its right edge to exactly 5&nbsp;cm. Saved for next visit.
+          </p>
+        </div>
         <div class="preview hidden" id="preview">
           <canvas id="qr-canvas" width="256" height="256" aria-label="QR code preview"></canvas>
         </div>
@@ -136,14 +170,10 @@
     </div>
 
     <div class="error" id="error" aria-live="polite"></div>
-    <div class="encoded" id="encoded-text" aria-live="polite"></div>
-
-    <p id="footer-hint" class="hint">
-      If a web address has no scheme, https:// is assumed. QR and PDF generation run from local bundled libraries. Link shortening sends the URL to is.gd or v.gd.
-    </p>
   </main>
 
   <script src="./vendor/qrcode.global.js"></script>
+  <script src="./vendor/jsbarcode.umd.min.js"></script>
   <script src="./vendor/jspdf.umd.min.js"></script>
   <script src="./js/app-browser.js"></script>
 </body>

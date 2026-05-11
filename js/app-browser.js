@@ -76,6 +76,148 @@ function loadJsPdf() {
   return Promise.resolve(jsPDF);
 }
 
+function loadJsBarcodeLib() {
+  if (typeof window.JsBarcode !== "function") {
+    return Promise.reject(new Error("Could not load the local JsBarcode library."));
+  }
+  return Promise.resolve(window.JsBarcode);
+}
+
+// --- PNG pHYs (physical pixel density) injection -----------------------------
+// Browser canvases export PNGs without any DPI metadata, which makes Word,
+// Pages, Keynote and most viewers fall back to ~96 DPI when placing the image
+// "at natural size". For a QR rendered at 300 DPI that produces an image
+// roughly 3.1x too big. Splicing a pHYs chunk in front of IDAT pins the file
+// to the requested DPI so it lands at the correct physical size.
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const PNG_DATA_URL_PREFIX = "data:image/png;base64,";
+const METRES_PER_INCH = 0.0254;
+
+let crcTable = null;
+
+function getCrcTable() {
+  if (crcTable) return crcTable;
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) {
+      c = (c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  crcTable = table;
+  return table;
+}
+
+function crc32(bytes) {
+  const table = getCrcTable();
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i += 1) {
+    c = table[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function readUint32BE(b, p) {
+  return ((b[p] << 24) | (b[p + 1] << 16) | (b[p + 2] << 8) | b[p + 3]) >>> 0;
+}
+
+function buildPhysChunk(ppm) {
+  const chunk = new Uint8Array(21);
+  chunk[0] = 0; chunk[1] = 0; chunk[2] = 0; chunk[3] = 9;
+  chunk[4] = 0x70; chunk[5] = 0x48; chunk[6] = 0x59; chunk[7] = 0x73;
+  chunk[8] = (ppm >>> 24) & 0xff;
+  chunk[9] = (ppm >>> 16) & 0xff;
+  chunk[10] = (ppm >>> 8) & 0xff;
+  chunk[11] = ppm & 0xff;
+  chunk[12] = (ppm >>> 24) & 0xff;
+  chunk[13] = (ppm >>> 16) & 0xff;
+  chunk[14] = (ppm >>> 8) & 0xff;
+  chunk[15] = ppm & 0xff;
+  chunk[16] = 1;
+  const crc = crc32(chunk.subarray(4, 17));
+  chunk[17] = (crc >>> 24) & 0xff;
+  chunk[18] = (crc >>> 16) & 0xff;
+  chunk[19] = (crc >>> 8) & 0xff;
+  chunk[20] = crc & 0xff;
+  return chunk;
+}
+
+function bytesToBase64(bytes) {
+  let s = "";
+  const slice = 0x8000;
+  for (let i = 0; i < bytes.length; i += slice) {
+    s += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, Math.min(i + slice, bytes.length)))
+    );
+  }
+  return btoa(s);
+}
+
+function injectPngDpi(dataUrl, dpi) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith(PNG_DATA_URL_PREFIX)) {
+    return dataUrl;
+  }
+  if (!Number.isFinite(dpi) || dpi <= 0) return dataUrl;
+
+  let binary;
+  try {
+    binary = atob(dataUrl.slice(PNG_DATA_URL_PREFIX.length));
+  } catch {
+    return dataUrl;
+  }
+
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+
+  for (let i = 0; i < PNG_SIGNATURE.length; i += 1) {
+    if (bytes[i] !== PNG_SIGNATURE[i]) return dataUrl;
+  }
+
+  const keepChunks = [];
+  let firstIdatIndex = -1;
+  let pos = 8;
+  while (pos + 8 <= bytes.length) {
+    const len = readUint32BE(bytes, pos);
+    const total = 12 + len;
+    if (pos + total > bytes.length) break;
+    const type = String.fromCharCode(
+      bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]
+    );
+    if (type !== "pHYs") {
+      if (type === "IDAT" && firstIdatIndex === -1) {
+        firstIdatIndex = keepChunks.length;
+      }
+      keepChunks.push(bytes.subarray(pos, pos + total));
+    }
+    pos += total;
+    if (type === "IEND") break;
+  }
+  if (firstIdatIndex === -1) return dataUrl;
+
+  const ppm = Math.max(1, Math.round(dpi / METRES_PER_INCH));
+  const phys = buildPhysChunk(ppm);
+
+  let totalLen = 8 + phys.length;
+  for (const c of keepChunks) totalLen += c.length;
+
+  const out = new Uint8Array(totalLen);
+  out.set(bytes.subarray(0, 8), 0);
+  let off = 8;
+  for (let i = 0; i < keepChunks.length; i += 1) {
+    if (i === firstIdatIndex) {
+      out.set(phys, off);
+      off += phys.length;
+    }
+    out.set(keepChunks[i], off);
+    off += keepChunks[i].length;
+  }
+
+  return PNG_DATA_URL_PREFIX + bytesToBase64(out);
+}
+
 function fillRoundRect(ctx, x, y, w, h, r) {
   const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
@@ -159,11 +301,15 @@ function drawFinder(ctx, left, top, unit, finderShape) {
   const center = unit * 3;
   const outerRadius = finderShape === "square" ? 0 : unit * 1.2;
   const centerRadius = finderShape === "square" ? 0 : unit * 0.9;
+  const innerRadius = Math.max(0, outerRadius - unit * 0.45);
 
+  // Paint the inner ring with opaque white instead of erasing it via
+  // destination-out, otherwise the saved PNG ends up with transparent rings
+  // where the white quiet-zone of each finder square should be.
   fillRoundRect(ctx, left, top, outer, outer, outerRadius);
   ctx.save();
-  ctx.globalCompositeOperation = "destination-out";
-  fillRoundRect(ctx, left + unit, top + unit, innerCut, innerCut, Math.max(0, outerRadius - unit * 0.45));
+  ctx.fillStyle = "#ffffff";
+  fillRoundRect(ctx, left + unit, top + unit, innerCut, innerCut, innerRadius);
   ctx.restore();
   fillRoundRect(ctx, left + unit * 2, top + unit * 2, center, center, centerRadius);
 }
@@ -253,11 +399,79 @@ function renderQrToCanvas(canvasEl, text, QRCode, options = {}) {
   });
 }
 
+/**
+ * Renders a 1D barcode (Code 128, EAN, UPC, etc.) onto the supplied canvas.
+ * JsBarcode chooses the bar count + size on its own, so we first let it draw
+ * to an offscreen canvas and then resample onto the visible canvas at the
+ * requested pixel width, preserving aspect ratio. Nearest-neighbour scaling
+ * keeps bar edges crisp.
+ *
+ * @param {HTMLCanvasElement} canvasEl
+ * @param {string} text
+ * @param {Function} JsBarcode
+ * @param {{ format: string, widthPx: number }} options
+ * @returns {Promise<void>}
+ */
+function renderBarcodeToCanvas(canvasEl, text, JsBarcode, options) {
+  return new Promise((resolve, reject) => {
+    try {
+      const off = document.createElement("canvas");
+      let invalid = null;
+      JsBarcode(off, text, {
+        format: options.format,
+        width: 3,
+        height: 100,
+        displayValue: true,
+        background: "#ffffff",
+        lineColor: "#000000",
+        // margin: 0 keeps the chosen "outer size" === the measured barcode
+        // width. The surrounding white paper/page typically provides the
+        // scan-quiet-zone.
+        margin: 0,
+        textMargin: 4,
+        fontSize: 20,
+        font: "system-ui, sans-serif",
+        valid: (ok) => {
+          if (!ok) invalid = true;
+        },
+      });
+      if (invalid || !off.width || !off.height) {
+        reject(new Error(`Value is not valid for ${options.format}.`));
+        return;
+      }
+      const aspect = off.height / off.width;
+      const w = Math.max(64, Math.round(options.widthPx));
+      const h = Math.max(16, Math.round(w * aspect));
+      canvasEl.width = w;
+      canvasEl.height = h;
+      const ctx = canvasEl.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Unable to get 2D canvas context."));
+        return;
+      }
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(off, 0, 0, w, h);
+      resolve();
+    } catch (e) {
+      reject(e instanceof Error ? e : new Error(String(e)));
+    }
+  });
+}
+
 const THEME_KEY = "mediacapture-theme";
 const LANG_KEY = "mediacapture-lang";
+const CAL_KEY = "mediacapture-cmcalibration";
+const CAL_BAR_TARGET_CM = 5;
 const PRINT_DPI = 300;
 const CM_PER_INCH = 2.54;
 const PX_PER_CM = PRINT_DPI / CM_PER_INCH;
+// Per CSS spec, 1in = 96 CSS px → 1cm ≈ 37.795 CSS px. This is only correct
+// on a "reference" 96 PPI display; on Retina / hi-DPI screens at non-default
+// scaling the browser still uses this constant, so the user calibrates it
+// against a physical ruler once and we store the result per device.
+const DEFAULT_PX_PER_CM_DISPLAY = 96 / CM_PER_INCH;
 const MIN_QR_CM = 1;
 const MAX_QR_CM = 1000;
 const QR_SLIDER_MIN_CM = 2;
@@ -267,10 +481,24 @@ const MIN_LOGO_CM = 0.3;
 const MAX_LOGO_SIDE_FRACTION = 0.28;
 const LOGO_ALPHA_THRESHOLD = 8;
 
+// Barcode-type -> JsBarcode format + content guidance. "qr" uses the existing
+// QRCode pipeline; everything else routes through JsBarcode.
+const BARCODE_TYPES = {
+  qr: { kind: "qr" },
+  code128: { kind: "1d", jsbFormat: "CODE128", placeholder: "ABC-1234" },
+  ean13: { kind: "1d", jsbFormat: "EAN13", placeholder: "5901234123457" },
+  ean8: { kind: "1d", jsbFormat: "EAN8", placeholder: "96385074" },
+  upca: { kind: "1d", jsbFormat: "UPC", placeholder: "036000291452" },
+  code39: { kind: "1d", jsbFormat: "CODE39", placeholder: "ABC1234" },
+  itf: { kind: "1d", jsbFormat: "ITF", placeholder: "12345678" },
+  codabar: { kind: "1d", jsbFormat: "codabar", placeholder: "A1234B" },
+};
+
 const input = document.getElementById("payload");
 const sizeInput = document.getElementById("qr-size-cm");
 const sizeSlider = document.getElementById("qr-size-slider");
 const sizeValue = document.getElementById("qr-size-value");
+const barcodeTypeSelect = document.getElementById("barcode-type");
 const modeSelect = document.getElementById("mode-select");
 const shapeSelect = document.getElementById("shape-select");
 const langButtons = Array.from(document.querySelectorAll(".lang-switcher [data-lang]"));
@@ -288,10 +516,42 @@ const errEl = document.getElementById("error");
 const preview = document.getElementById("preview");
 const canvas = document.getElementById("qr-canvas");
 const encodedEl = document.getElementById("encoded-text");
+const qrOnlyElements = Array.from(document.querySelectorAll(".qr-only"));
+const calBar = document.getElementById("calibrate-bar");
+const calTrack = document.getElementById("calibrate-track");
 
 /** @type {string | null} */
 let lastEncodedPayload = null;
 let lastQrSizeCm = 4;
+/** Aspect ratio (height / width) of the last successful render. QR = 1.0,
+ *  1D barcodes are wider than they are tall. Used for PDF placement. */
+let lastCanvasAspect = 1;
+let currentBarcodeType = "qr";
+
+/**
+ * Number of CSS px that represent one physical centimetre on the user's
+ * screen. Loaded from localStorage; falls back to the CSS-spec assumption
+ * of 96 DPI (≈37.795 px/cm) on first visit.
+ */
+let cmPxFactor = loadCalibration();
+
+function loadCalibration() {
+  try {
+    const v = parseFloat(localStorage.getItem(CAL_KEY));
+    if (Number.isFinite(v) && v >= 10 && v <= 200) return v;
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_PX_PER_CM_DISPLAY;
+}
+
+function persistCalibration(pxPerCm) {
+  try {
+    localStorage.setItem(CAL_KEY, String(pxPerCm));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** @type {HTMLImageElement | null} */
 let logoImageFromFile = null;
@@ -301,10 +561,10 @@ let currentLanguage = "en";
 
 const I18N = {
   en: {
-    pageTitle: "QR Creator Tool",
-    headerTitle: "QR Creator Tool",
+    pageTitle: "Barcode Creator Tool",
+    headerTitle: "Barcode Creator Tool",
     lead:
-      "Generate a QR code for a web link or plain text. You can shorten links, upload a center logo, and customize the QR style.",
+      "Generate a QR code or a common 1D barcode (Code 128, EAN, UPC, Code 39, ITF, Codabar). QR codes also support a center logo and link shortening.",
     languageLabel: "Language",
     themeLabel: "Theme",
     themeAutoAria: "Auto theme",
@@ -313,6 +573,7 @@ const I18N = {
     themeAuto: "Auto",
     themeLight: "Light",
     themeDark: "Dark",
+    barcodeTypeLabel: "Barcode type",
     modeLabel: "Content type",
     modeUrl: "Web link",
     modeText: "Plain text",
@@ -320,13 +581,16 @@ const I18N = {
     payloadPlaceholderUrl: "https://example.com/page",
     payloadLabelText: "Text content",
     payloadPlaceholderText: "Type any text you want to encode",
+    payloadLabelBarcode: "Barcode value",
     shapeLabel: "QR style",
     shapeSquare: "Square",
     shapeRounded: "Rounded",
     shapeDots: "Dots",
-    sizeLabel: "QR outer size (cm)",
+    sizeLabel: "Outer size (cm)",
+    calibrateHint:
+      "Line up the bar's left edge with 0 on a physical ruler, then drag its right edge to exactly 5\u00a0cm. Saved for next visit.",
     shortenLabel: "Shorten link first (is.gd, then v.gd)",
-    shortenHint: "Only applies to web links. The URL is sent to is.gd, then v.gd if the first service fails.",
+    shortenHint: "Shorten your link so a smaller QR code works better.",
     logoLabel: "Center logo on the QR",
     logoHint:
       "Uses high error correction. QR dots under visible logo pixels are removed. Remote logos require CORS headers for PNG export.",
@@ -334,30 +598,32 @@ const I18N = {
     logoUrlPlaceholder: "https://example.com/logo.png",
     logoFileLabel: "Or local file",
     logoSizeLabel: "Center logo max side (cm)",
-    generate: "Generate QR",
+    generate: "Generate",
     working: "Working...",
     download: "Download PNG",
     downloadPdf: "Download A4 PDF",
     hint:
-      "If a web address has no scheme, https:// is assumed. QR/PDF libraries are bundled locally; link shortening uses is.gd/v.gd.",
-    encodedPrefix: "QR encodes:",
+      "If a web address has no scheme, https:// is assumed. QR / barcode / PDF libraries are bundled locally; link shortening uses is.gd/v.gd.",
+    encodedPrefix: "Encoded:",
     errEnterAddress: "Enter a web address.",
     errInvalidAddress: "That does not look like a valid http(s) link.",
     errEnterText: "Enter some text to encode.",
+    errEnterBarcodeValue: "Enter a value for the barcode.",
+    errInvalidBarcodeValue: "That value is not valid for the selected barcode type.",
     errLogoRead: "Could not read that image file.",
     errLogoUrlInvalid: "Logo URL must be a valid http(s) address.",
     errLogoMissing: "Add a logo URL and/or local logo file, or turn off the logo option.",
-    errGenerateFirst: "Generate a QR code first.",
+    errGenerateFirst: "Generate a barcode first.",
     errDownloadFailed:
       "Download failed (canvas may be tainted). Try a logo file instead of URL, or a CORS-enabled logo URL.",
     errInvalidSize: "Enter a valid size between 1 and 1000 cm.",
     errPdfTooLarge: "For A4 export, choose a size up to 20 cm.",
   },
   nl: {
-    pageTitle: "QR Maker Tool",
-    headerTitle: "QR Maker Tool",
+    pageTitle: "Barcode Maker Tool",
+    headerTitle: "Barcode Maker Tool",
     lead:
-      "Genereer een QR-code voor een weblink of vrije tekst. Je kunt links inkorten, een centraal logo uploaden en de QR-stijl aanpassen.",
+      "Genereer een QR-code of een veelgebruikte 1D-barcode (Code 128, EAN, UPC, Code 39, ITF, Codabar). QR-codes ondersteunen ook een centraal logo en linkverkorting.",
     languageLabel: "Taal",
     themeLabel: "Thema",
     themeAutoAria: "Automatisch thema",
@@ -366,6 +632,7 @@ const I18N = {
     themeAuto: "Auto",
     themeLight: "Licht",
     themeDark: "Donker",
+    barcodeTypeLabel: "Barcodetype",
     modeLabel: "Inhoudstype",
     modeUrl: "Weblink",
     modeText: "Tekst",
@@ -373,13 +640,16 @@ const I18N = {
     payloadPlaceholderUrl: "https://voorbeeld.nl/pagina",
     payloadLabelText: "Tekstinhoud",
     payloadPlaceholderText: "Typ tekst die je wilt coderen",
+    payloadLabelBarcode: "Barcodewaarde",
     shapeLabel: "QR-stijl",
     shapeSquare: "Vierkant",
     shapeRounded: "Afgerond",
     shapeDots: "Punten",
-    sizeLabel: "Buitenmaat QR (cm)",
+    sizeLabel: "Buitenmaat (cm)",
+    calibrateHint:
+      "Leg de linkerrand van de balk op 0 van een echte liniaal en sleep de rechterrand naar exact 5\u00a0cm. Wordt bewaard voor je volgende bezoek.",
     shortenLabel: "Link eerst inkorten (is.gd, daarna v.gd)",
-    shortenHint: "Geldt alleen voor weblinks. De URL wordt naar is.gd gestuurd, daarna naar v.gd als de eerste dienst faalt.",
+    shortenHint: "Laat je Link inkorten zodat een kleinere QR code beter werkt.",
     logoLabel: "Centraal logo op de QR",
     logoHint:
       "Gebruikt hoge foutcorrectie. QR-punten onder zichtbare logopixels worden verwijderd. Externe logo's vereisen CORS-headers voor PNG-export.",
@@ -387,30 +657,32 @@ const I18N = {
     logoUrlPlaceholder: "https://voorbeeld.nl/logo.png",
     logoFileLabel: "Of lokaal bestand",
     logoSizeLabel: "Maximale logozijde (cm)",
-    generate: "Genereer QR",
+    generate: "Genereer",
     working: "Bezig...",
     download: "Download PNG",
     downloadPdf: "Download A4-PDF",
     hint:
-      "Als een webadres geen schema heeft, wordt https:// toegevoegd. QR/PDF-bibliotheken zijn lokaal gebundeld; inkorten gebruikt is.gd/v.gd.",
-    encodedPrefix: "QR bevat:",
+      "Als een webadres geen schema heeft, wordt https:// toegevoegd. QR-/barcode-/PDF-bibliotheken zijn lokaal gebundeld; inkorten gebruikt is.gd/v.gd.",
+    encodedPrefix: "Gecodeerd:",
     errEnterAddress: "Vul een webadres in.",
     errInvalidAddress: "Dit lijkt geen geldige http(s)-url.",
     errEnterText: "Vul tekst in om te coderen.",
+    errEnterBarcodeValue: "Vul een waarde in voor de barcode.",
+    errInvalidBarcodeValue: "Deze waarde is niet geldig voor het gekozen barcodetype.",
     errLogoRead: "Kon dit afbeeldingsbestand niet lezen.",
     errLogoUrlInvalid: "De logo-URL moet een geldige http(s)-url zijn.",
     errLogoMissing: "Voeg een logo-URL en/of lokaal logo toe, of zet logo uit.",
-    errGenerateFirst: "Genereer eerst een QR-code.",
+    errGenerateFirst: "Genereer eerst een barcode.",
     errDownloadFailed:
       "Download mislukt (canvas is mogelijk vervuild). Gebruik een lokaal logo of een URL met CORS.",
     errInvalidSize: "Vul een geldige grootte in tussen 1 en 1000 cm.",
     errPdfTooLarge: "Kies voor A4-export een grootte van maximaal 20 cm.",
   },
   de: {
-    pageTitle: "QR-Generator",
-    headerTitle: "QR-Generator",
+    pageTitle: "Barcode-Generator",
+    headerTitle: "Barcode-Generator",
     lead:
-      "Erstelle einen QR-Code fuer einen Weblink oder freien Text. Du kannst Links kuerzen, ein zentrales Logo hochladen und den QR-Stil anpassen.",
+      "Erstelle einen QR-Code oder eine gaengige 1D-Barcode (Code 128, EAN, UPC, Code 39, ITF, Codabar). QR-Codes unterstuetzen zusaetzlich ein zentrales Logo und Link-Kuerzung.",
     languageLabel: "Sprache",
     themeLabel: "Design",
     themeAutoAria: "Automatisches Design",
@@ -419,6 +691,7 @@ const I18N = {
     themeAuto: "Auto",
     themeLight: "Hell",
     themeDark: "Dunkel",
+    barcodeTypeLabel: "Barcode-Typ",
     modeLabel: "Inhaltstyp",
     modeUrl: "Weblink",
     modeText: "Text",
@@ -426,13 +699,16 @@ const I18N = {
     payloadPlaceholderUrl: "https://beispiel.de/seite",
     payloadLabelText: "Textinhalt",
     payloadPlaceholderText: "Beliebigen Text eingeben",
+    payloadLabelBarcode: "Barcode-Wert",
     shapeLabel: "QR-Stil",
     shapeSquare: "Quadratisch",
     shapeRounded: "Abgerundet",
     shapeDots: "Punkte",
-    sizeLabel: "QR-Aussenmass (cm)",
+    sizeLabel: "Aussenmass (cm)",
+    calibrateHint:
+      "Richte die linke Kante des Balkens an 0 auf einem echten Lineal aus und ziehe die rechte Kante exakt auf 5\u00a0cm. Wird fuer den naechsten Besuch gespeichert.",
     shortenLabel: "Link zuerst kuerzen (is.gd, dann v.gd)",
-    shortenHint: "Gilt nur fuer Weblinks. Die URL wird an is.gd gesendet, danach an v.gd, falls der erste Dienst fehlschlaegt.",
+    shortenHint: "Kuerze deinen Link, damit ein kleinerer QR-Code besser funktioniert.",
     logoLabel: "Zentrales Logo auf dem QR",
     logoHint:
       "Verwendet eine hohe Fehlerkorrektur. QR-Punkte unter sichtbaren Logo-Pixeln werden entfernt. Externe Logos benoetigen CORS-Header fuer den PNG-Export.",
@@ -440,20 +716,22 @@ const I18N = {
     logoUrlPlaceholder: "https://beispiel.de/logo.png",
     logoFileLabel: "Oder lokale Datei",
     logoSizeLabel: "Maximale Logo-Seite (cm)",
-    generate: "QR erstellen",
+    generate: "Erstellen",
     working: "Wird erstellt...",
     download: "PNG herunterladen",
     downloadPdf: "A4-PDF herunterladen",
     hint:
-      "Wenn eine Webadresse kein Schema hat, wird https:// angenommen. QR/PDF-Bibliotheken sind lokal gebuendelt; Kuerzen nutzt is.gd/v.gd.",
-    encodedPrefix: "QR kodiert:",
+      "Wenn eine Webadresse kein Schema hat, wird https:// angenommen. QR-, Barcode- und PDF-Bibliotheken sind lokal gebuendelt; Kuerzen nutzt is.gd/v.gd.",
+    encodedPrefix: "Kodiert:",
     errEnterAddress: "Bitte eine Webadresse eingeben.",
     errInvalidAddress: "Das sieht nicht wie eine gueltige http(s)-URL aus.",
     errEnterText: "Bitte Text zum Kodieren eingeben.",
+    errEnterBarcodeValue: "Bitte einen Wert fuer den Barcode eingeben.",
+    errInvalidBarcodeValue: "Dieser Wert ist fuer den gewaehlten Barcode-Typ ungueltig.",
     errLogoRead: "Die Bilddatei konnte nicht gelesen werden.",
     errLogoUrlInvalid: "Die Logo-URL muss eine gueltige http(s)-Adresse sein.",
     errLogoMissing: "Bitte eine Logo-URL und/oder eine lokale Datei hinzufuegen oder die Logo-Option deaktivieren.",
-    errGenerateFirst: "Zuerst einen QR-Code erzeugen.",
+    errGenerateFirst: "Zuerst einen Barcode erzeugen.",
     errDownloadFailed:
       "Download fehlgeschlagen (Canvas moeglicherweise \"tainted\"). Verwende eine lokale Datei oder eine CORS-faehige URL.",
     errInvalidSize: "Bitte eine gueltige Groesse zwischen 1 und 1000 cm eingeben.",
@@ -502,11 +780,12 @@ function setBusy(busy) {
   sizeInput.disabled = busy;
   sizeSlider.disabled = busy;
   chkLogo.disabled = busy;
+  barcodeTypeSelect.disabled = busy;
   modeSelect.disabled = busy;
   shapeSelect.disabled = busy;
   for (const btn of langButtons) btn.disabled = busy;
   for (const btn of themeButtons) btn.disabled = busy;
-  syncModeUi();
+  syncBarcodeTypeUi();
   syncLogoInputs(busy);
   btnGen.textContent = busy ? t("working") : t("generate");
 }
@@ -522,6 +801,151 @@ function parseQrSizeCm() {
 
 function formatCm(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+/**
+ * Sizes the visible canvas so the bitmap displays at exactly `lastQrSizeCm`
+ * (and `lastQrSizeCm * lastCanvasAspect` tall) at 100% browser zoom — i.e.
+ * the on-screen preview matches the physical size the user picked. If the
+ * preview container is too small, the canvas is uniformly scaled down so it
+ * still fits, preserving aspect ratio. The underlying bitmap (used for
+ * PNG/PDF export) is untouched.
+ *
+ * Per CSS spec, 1in = 96 CSS px, so 1cm = 96/2.54 CSS px ≈ 37.795 px. On
+ * standard monitors at 100% zoom this maps closely to one physical
+ * centimetre; on hi-DPI screens the OS keeps that mapping stable.
+ */
+function applyPreviewDisplaySize() {
+  if (preview.classList.contains("hidden")) return;
+  if (!canvas.width || !canvas.height) return;
+
+  const previewBox = preview.getBoundingClientRect();
+  if (previewBox.width === 0 || previewBox.height === 0) return;
+
+  const previewStyle = window.getComputedStyle(preview);
+  const padPreviewX =
+    parseFloat(previewStyle.paddingLeft) + parseFloat(previewStyle.paddingRight);
+  const padPreviewY =
+    parseFloat(previewStyle.paddingTop) + parseFloat(previewStyle.paddingBottom);
+
+  const availW = Math.max(0, previewBox.width - padPreviewX);
+  const availH = Math.max(0, previewBox.height - padPreviewY);
+  if (availW <= 0 || availH <= 0) return;
+
+  // The canvas itself has no padding (see css/app.css), so its border-box
+  // equals its content-box equals the bitmap display area. That means a
+  // chosen cm maps directly to `cm * cmPxFactor` CSS px — exactly the same
+  // mapping used by the calibration bar above the preview.
+  const aspect = canvas.height / canvas.width;
+  const cm = Math.max(0.1, lastQrSizeCm);
+  const desiredW = cm * cmPxFactor;
+  const desiredH = desiredW * aspect;
+  if (desiredW <= 0 || desiredH <= 0) return;
+
+  const scale = Math.min(1, availW / desiredW, availH / desiredH);
+  canvas.style.width = `${desiredW * scale}px`;
+  canvas.style.height = `${desiredH * scale}px`;
+}
+
+function calibrationBounds() {
+  if (!calTrack) return { min: 80, max: 900 };
+  return {
+    min: parseInt(calTrack.getAttribute("aria-valuemin") || "80", 10),
+    max: parseInt(calTrack.getAttribute("aria-valuemax") || "900", 10),
+  };
+}
+
+function currentCalibrationPx() {
+  return Math.max(1, Math.round(cmPxFactor * CAL_BAR_TARGET_CM));
+}
+
+/** Reflects `cmPxFactor` into the calibration bar. */
+function syncCalibrationUi(explicitPx) {
+  if (!calBar || !calTrack) return;
+  const { min, max } = calibrationBounds();
+  const px = Math.max(min, Math.min(max, explicitPx ?? currentCalibrationPx()));
+  calBar.style.width = `${px}px`;
+  calTrack.setAttribute("aria-valuenow", String(px));
+}
+
+function applyCalibrationPx(px) {
+  const { min, max } = calibrationBounds();
+  const clamped = Math.max(min, Math.min(max, Math.round(px)));
+  cmPxFactor = clamped / CAL_BAR_TARGET_CM;
+  syncCalibrationUi(clamped);
+  persistCalibration(cmPxFactor);
+  applyPreviewDisplaySize();
+}
+
+/** Converts a pointer's client X into a desired bar width (px from the
+ *  track's left edge), so dragging the bar's right edge follows the mouse
+ *  one CSS pixel at a time. */
+function pointerToCalibrationPx(clientX) {
+  if (!calTrack) return currentCalibrationPx();
+  const rect = calTrack.getBoundingClientRect();
+  return clientX - rect.left;
+}
+
+let calibratingPointerId = null;
+
+function onCalibrateTrackPointerDown(e) {
+  if (!calTrack) return;
+  if (e.button !== undefined && e.button !== 0) return;
+  calibratingPointerId = e.pointerId;
+  if (typeof calTrack.setPointerCapture === "function") {
+    try {
+      calTrack.setPointerCapture(e.pointerId);
+    } catch {
+      /* some browsers reject capture on touch */
+    }
+  }
+  e.preventDefault();
+  applyCalibrationPx(pointerToCalibrationPx(e.clientX));
+  calTrack.focus({ preventScroll: true });
+}
+
+function onCalibrateTrackPointerMove(e) {
+  if (calibratingPointerId !== e.pointerId) return;
+  applyCalibrationPx(pointerToCalibrationPx(e.clientX));
+}
+
+function onCalibrateTrackPointerUp(e) {
+  if (calibratingPointerId !== e.pointerId) return;
+  calibratingPointerId = null;
+  if (calTrack && typeof calTrack.releasePointerCapture === "function") {
+    try {
+      calTrack.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function onCalibrateTrackKeydown(e) {
+  if (!calTrack) return;
+  const step = e.shiftKey ? 10 : 1;
+  let px = currentCalibrationPx();
+  const { min, max } = calibrationBounds();
+  switch (e.key) {
+    case "ArrowLeft":
+    case "ArrowDown":
+      px -= step;
+      break;
+    case "ArrowRight":
+    case "ArrowUp":
+      px += step;
+      break;
+    case "Home":
+      px = min;
+      break;
+    case "End":
+      px = max;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  applyCalibrationPx(px);
 }
 
 function syncQrSizeUi(source) {
@@ -556,6 +980,10 @@ function normalizeHttpUrl(raw) {
 
 function validateAndNormalize(raw, mode) {
   const s = (raw || "").trim();
+  if (mode === "barcode") {
+    if (!s) return { ok: false, message: t("errEnterBarcodeValue") };
+    return { ok: true, payload: s };
+  }
   if (!s) {
     return { ok: false, message: mode === "url" ? t("errEnterAddress") : t("errEnterText") };
   }
@@ -616,22 +1044,38 @@ function setText(id, value) {
   if (el) el.textContent = value;
 }
 
-function syncModeUi() {
-  const isUrlMode = modeSelect.value === "url";
-  const payloadLabel = document.getElementById("payload-label");
-  if (payloadLabel) {
-    payloadLabel.textContent = isUrlMode ? t("payloadLabelUrl") : t("payloadLabelText");
+function syncBarcodeTypeUi() {
+  currentBarcodeType = BARCODE_TYPES[barcodeTypeSelect.value] ? barcodeTypeSelect.value : "qr";
+  const def = BARCODE_TYPES[currentBarcodeType];
+  const isQr = def.kind === "qr";
+
+  for (const el of qrOnlyElements) {
+    el.classList.toggle("is-hidden", !isQr);
   }
-  input.type = isUrlMode ? "url" : "text";
-  input.placeholder = isUrlMode ? t("payloadPlaceholderUrl") : t("payloadPlaceholderText");
-  chkShorten.disabled = btnGen.disabled || !isUrlMode;
-  if (!isUrlMode) chkShorten.checked = false;
+
+  const payloadLabel = document.getElementById("payload-label");
+
+  if (isQr) {
+    const isUrlMode = modeSelect.value === "url";
+    if (payloadLabel) {
+      payloadLabel.textContent = isUrlMode ? t("payloadLabelUrl") : t("payloadLabelText");
+    }
+    input.type = isUrlMode ? "url" : "text";
+    input.placeholder = isUrlMode ? t("payloadPlaceholderUrl") : t("payloadPlaceholderText");
+    chkShorten.disabled = btnGen.disabled || !isUrlMode;
+    if (!isUrlMode) chkShorten.checked = false;
+  } else {
+    if (payloadLabel) payloadLabel.textContent = t("payloadLabelBarcode");
+    input.type = "text";
+    input.placeholder = def.placeholder || "";
+    chkShorten.disabled = true;
+    chkShorten.checked = false;
+  }
 }
 
 function applyTranslations() {
   document.documentElement.lang = currentLanguage;
   document.title = t("pageTitle");
-  setText("header-title", t("headerTitle"));
   setText("lead-copy", t("lead"));
   setText("language-label", t("languageLabel"));
   setText("theme-label", t("themeLabel"));
@@ -641,6 +1085,7 @@ function applyTranslations() {
   if (autoBtn) autoBtn.setAttribute("aria-label", t("themeAutoAria"));
   if (lightBtn) lightBtn.setAttribute("aria-label", t("themeLightAria"));
   if (darkBtn) darkBtn.setAttribute("aria-label", t("themeDarkAria"));
+  setText("barcode-type-label", t("barcodeTypeLabel"));
   setText("mode-label", t("modeLabel"));
   setText("mode-opt-url", t("modeUrl"));
   setText("mode-opt-text", t("modeText"));
@@ -649,6 +1094,7 @@ function applyTranslations() {
   setText("shape-opt-rounded", t("shapeRounded"));
   setText("shape-opt-dots", t("shapeDots"));
   setText("size-label", t("sizeLabel"));
+  setText("calibrate-hint", t("calibrateHint"));
   setText("opt-shorten-label", t("shortenLabel"));
   setText("shorten-hint", t("shortenHint"));
   setText("opt-logo-label", t("logoLabel"));
@@ -659,11 +1105,10 @@ function applyTranslations() {
   setText("generate", t("generate"));
   setText("download", t("download"));
   setText("download-pdf", t("downloadPdf"));
-  setText("footer-hint", t("hint"));
   logoUrlInput.placeholder = t("logoUrlPlaceholder");
   paintLanguageButtons();
   paintThemeButtons();
-  syncModeUi();
+  syncBarcodeTypeUi();
 }
 
 function paintLanguageButtons() {
@@ -735,7 +1180,7 @@ chkLogo.addEventListener("change", () => {
   syncLogoInputs(btnGen.disabled);
 });
 
-modeSelect.addEventListener("change", syncModeUi);
+modeSelect.addEventListener("change", syncBarcodeTypeUi);
 sizeInput.addEventListener("input", () => syncQrSizeUi("number"));
 sizeSlider.addEventListener("input", () => {
   sizeInput.value = sizeSlider.value;
@@ -858,12 +1303,15 @@ function escapeAttr(s) {
 async function onGenerate() {
   setError("");
   lastEncodedPayload = null;
-  encodedEl.textContent = "";
+  if (encodedEl) encodedEl.textContent = "";
   preview.classList.add("hidden");
   btnDl.disabled = true;
   btnPdf.disabled = true;
 
-  const mode = modeSelect.value === "text" ? "text" : "url";
+  const def = BARCODE_TYPES[currentBarcodeType] || BARCODE_TYPES.qr;
+  const isQr = def.kind === "qr";
+
+  const mode = isQr ? (modeSelect.value === "text" ? "text" : "url") : "barcode";
   const v = validateAndNormalize(input.value, mode);
   if (!v.ok) {
     setError(v.message);
@@ -879,32 +1327,57 @@ async function onGenerate() {
   let payload = v.payload;
 
   try {
-    if (mode === "url" && chkShorten.checked) {
-      payload = await shortenUrlAuto(v.payload);
-    }
-
-    const logoForQr = await resolveLogoForRender();
-    const selectedShape = shapeSelect.value;
-    const moduleShape = selectedShape === "rounded" || selectedShape === "dots" ? selectedShape : "square";
-    const QRCode = await loadQrModule();
     const renderPx = Math.max(128, Math.min(4096, Math.round(qrSize.cm * PX_PER_CM)));
 
-    await renderQrToCanvas(canvas, payload, QRCode, {
-      width: renderPx,
-      margin: 2,
-      logoImage: logoForQr,
-      logoSizePx: logoForQr ? Math.round(getLogoSizeCm() * PX_PER_CM) : 0,
-      moduleShape,
-    });
+    if (isQr) {
+      if (mode === "url" && chkShorten.checked) {
+        payload = await shortenUrlAuto(v.payload);
+      }
+      const logoForQr = await resolveLogoForRender();
+      const selectedShape = shapeSelect.value;
+      const moduleShape =
+        selectedShape === "rounded" || selectedShape === "dots" ? selectedShape : "square";
+      const QRCode = await loadQrModule();
+
+      await renderQrToCanvas(canvas, payload, QRCode, {
+        // margin: 0 means the bitmap === the visible QR pattern. The chosen
+        // "outer size" therefore equals what the user actually measures with
+        // a ruler. The surrounding paper / screen background still provides
+        // the scan-quiet-zone in practice.
+        width: renderPx,
+        margin: 0,
+        logoImage: logoForQr,
+        logoSizePx: logoForQr ? Math.round(getLogoSizeCm() * PX_PER_CM) : 0,
+        moduleShape,
+      });
+      lastCanvasAspect = 1;
+    } else {
+      const JsBarcode = await loadJsBarcodeLib();
+      try {
+        await renderBarcodeToCanvas(canvas, payload, JsBarcode, {
+          format: def.jsbFormat,
+          widthPx: renderPx,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // JsBarcode throws messages like "..." for invalid values; surface a
+        // translated, user-friendly error and keep the raw cause for context.
+        throw new Error(`${t("errInvalidBarcodeValue")} (${msg})`);
+      }
+      lastCanvasAspect = canvas.width > 0 ? canvas.height / canvas.width : 1;
+    }
 
     lastEncodedPayload = payload;
     lastQrSizeCm = qrSize.cm;
-    if (mode === "url") {
-      encodedEl.innerHTML = `<strong>${escapeHtml(t("encodedPrefix"))}</strong> <a href="${escapeAttr(payload)}" rel="noopener noreferrer" target="_blank">${escapeHtml(payload)}</a>`;
-    } else {
-      encodedEl.innerHTML = `<strong>${escapeHtml(t("encodedPrefix"))}</strong> ${escapeHtml(payload)}`;
+    if (encodedEl) {
+      if (mode === "url") {
+        encodedEl.innerHTML = `<strong>${escapeHtml(t("encodedPrefix"))}</strong> <a href="${escapeAttr(payload)}" rel="noopener noreferrer" target="_blank">${escapeHtml(payload)}</a>`;
+      } else {
+        encodedEl.innerHTML = `<strong>${escapeHtml(t("encodedPrefix"))}</strong> ${escapeHtml(payload)}`;
+      }
     }
     preview.classList.remove("hidden");
+    applyPreviewDisplaySize();
     btnDl.disabled = false;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -914,15 +1387,26 @@ async function onGenerate() {
   }
 }
 
+function downloadBaseName() {
+  return currentBarcodeType === "qr" ? "qrcode" : `barcode-${currentBarcodeType}`;
+}
+
 function onDownload() {
   if (!lastEncodedPayload) {
     setError(t("errGenerateFirst"));
     return;
   }
   try {
+    // Derive the embedded DPI from the actual rendered pixel size so the
+    // saved PNG truly represents `lastQrSizeCm` cm at whatever pixel count
+    // we ended up with (the 128/4096 px clamps in onGenerate can otherwise
+    // drift the effective DPI for very small or very large requests).
+    const cm = Math.max(0.1, lastQrSizeCm || MIN_QR_CM);
+    const dpi = (canvas.width / cm) * CM_PER_INCH;
+    const dataUrl = injectPngDpi(canvas.toDataURL("image/png"), dpi);
     const a = document.createElement("a");
-    a.download = "qrcode.png";
-    a.href = canvas.toDataURL("image/png");
+    a.download = `${downloadBaseName()}.png`;
+    a.href = dataUrl;
     a.click();
   } catch {
     setError(t("errDownloadFailed"));
@@ -939,25 +1423,35 @@ async function onDownloadPdf() {
     setError(qrSize.message);
     return;
   }
-  const qrSizeMm = qrSize.cm * 10;
-  if (qrSizeMm > MAX_PDF_QR_MM) {
+  const widthMm = qrSize.cm * 10;
+  if (widthMm > MAX_PDF_QR_MM) {
     setError(t("errPdfTooLarge"));
     return;
   }
+  const heightMm = widthMm * (lastCanvasAspect > 0 ? lastCanvasAspect : 1);
   try {
     const jsPDF = await loadJsPdf();
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = 210;
     const pageH = 297;
-    const x = (pageW - qrSizeMm) / 2;
-    const y = (pageH - qrSizeMm) / 2;
+    const x = (pageW - widthMm) / 2;
+    const y = (pageH - heightMm) / 2;
     const img = canvas.toDataURL("image/png");
-    pdf.addImage(img, "PNG", x, y, qrSizeMm, qrSizeMm, undefined, "FAST");
-    pdf.save("qrcode-a4.pdf");
+    pdf.addImage(img, "PNG", x, y, widthMm, heightMm, undefined, "FAST");
+    pdf.save(`${downloadBaseName()}-a4.pdf`);
   } catch {
     setError(t("errDownloadFailed"));
   }
 }
+
+barcodeTypeSelect.addEventListener("change", () => {
+  syncBarcodeTypeUi();
+  preview.classList.add("hidden");
+  if (encodedEl) encodedEl.textContent = "";
+  lastEncodedPayload = null;
+  btnDl.disabled = true;
+  btnPdf.disabled = true;
+});
 
 btnGen.addEventListener("click", () => {
   void onGenerate();
@@ -970,9 +1464,34 @@ input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void onGenerate();
 });
 
+if (calTrack) {
+  calTrack.addEventListener("pointerdown", onCalibrateTrackPointerDown);
+  calTrack.addEventListener("pointermove", onCalibrateTrackPointerMove);
+  calTrack.addEventListener("pointerup", onCalibrateTrackPointerUp);
+  calTrack.addEventListener("pointercancel", onCalibrateTrackPointerUp);
+  calTrack.addEventListener("keydown", onCalibrateTrackKeydown);
+}
+
+// Re-apply the cm-accurate preview size whenever the viewport (or the
+// preview column inside it) changes its available space. rAF-debounced so
+// drag-resizing the window stays smooth.
+let resizeRaf = 0;
+function schedulePreviewResize() {
+  if (resizeRaf) cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = 0;
+    applyPreviewDisplaySize();
+  });
+}
+window.addEventListener("resize", schedulePreviewResize);
+if (typeof ResizeObserver === "function") {
+  new ResizeObserver(schedulePreviewResize).observe(preview);
+}
+
 initTheme();
 initLanguage();
+syncCalibrationUi();
 syncQrSizeUi();
 syncLogoInputs(false);
 syncLogoSizeLabel();
-syncModeUi();
+syncBarcodeTypeUi();

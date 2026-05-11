@@ -132,11 +132,15 @@ function drawFinder(ctx, left, top, unit, finderShape) {
   const innerDot = unit * 3;
   const outerRadius = finderShape === "square" ? 0 : unit * 1.2;
   const centerRadius = finderShape === "square" ? 0 : unit * 0.9;
+  const innerRadius = Math.max(0, outerRadius - unit * 0.45);
 
+  // Paint the inner ring with opaque white instead of erasing it via
+  // destination-out, otherwise the saved PNG ends up with transparent rings
+  // where the white quiet-zone of each finder square should be.
   fillRoundRect(ctx, left, top, outer, outer, outerRadius);
   ctx.save();
-  ctx.globalCompositeOperation = "destination-out";
-  fillRoundRect(ctx, left + unit, top + unit, innerCut, innerCut, Math.max(0, outerRadius - unit * 0.45));
+  ctx.fillStyle = "#ffffff";
+  fillRoundRect(ctx, left + unit, top + unit, innerCut, innerCut, innerRadius);
   ctx.restore();
   fillRoundRect(ctx, left + unit * 2, top + unit * 2, center, innerDot, centerRadius);
 }

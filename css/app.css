@@ -34,7 +34,7 @@ html.mc-theme-dark {
 body {
   margin: 0;
   min-height: 100vh;
-  padding: 24px;
+  padding: clamp(8px, 1.6vh, 24px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -48,24 +48,45 @@ body {
 .app-shell {
   width: 100%;
   max-width: 1160px;
-  padding: 24px;
+  max-height: calc(100dvh - clamp(16px, 3.2vh, 48px));
+  padding: clamp(12px, 2vh, 24px);
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .topbar {
   display: flex;
   justify-content: flex-start;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
+  flex: 0 0 auto;
 }
 
-.topbar h1 {
+.topbar .barcode-type-field {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   margin: 0;
-  font-size: 1.45rem;
+  padding: 0;
+  border-bottom: 0;
+  text-align: left;
+}
+
+.topbar .barcode-type-field select {
+  width: auto;
+  max-width: min(420px, 90vw);
+  font-size: clamp(1.05rem, 0.6rem + 1vh, 1.45rem);
+  font-weight: 600;
   letter-spacing: -0.01em;
+  padding: clamp(6px, 1vh, 10px) clamp(14px, 1.2vw, 20px);
+  border-radius: 10px;
+  text-align: left;
+  text-align-last: left;
 }
 
 .chrome-stack {
@@ -200,13 +221,14 @@ label {
 
 .lead {
   color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.5;
-  margin: 14px 0 16px;
+  font-size: clamp(0.82rem, 0.55rem + 0.45vh, 0.92rem);
+  line-height: 1.45;
+  margin: clamp(8px, 1.4vh, 14px) 0 clamp(8px, 1.4vh, 16px);
+  flex: 0 0 auto;
 }
 
 .panel {
-  padding: 16px;
+  padding: clamp(10px, 1.6vh, 16px);
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface-alt);
@@ -215,7 +237,32 @@ label {
 .workspace {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: clamp(8px, 1.4vh, 16px);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.barcode-type-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 clamp(8px, 1.4vh, 14px);
+  padding: 0 0 clamp(8px, 1.4vh, 14px);
+  border-bottom: 1px dashed var(--border);
+  text-align: center;
+}
+
+.barcode-type-field select {
+  width: 100%;
+  max-width: 280px;
+  text-align: center;
+  text-align-last: center;
+}
+
+.qr-only.is-hidden,
+.barcode-only.is-hidden {
+  display: none !important;
 }
 
 .editor-column {
@@ -236,7 +283,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 12px;
+  margin-top: clamp(8px, 1.2vh, 12px);
 }
 
 .field-grid .field {
@@ -249,20 +296,20 @@ input[type="number"],
 input[type="file"],
 select {
   width: 100%;
-  padding: 11px 12px;
+  padding: clamp(8px, 1.2vh, 11px) 12px;
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: clamp(0.86rem, 0.55rem + 0.5vh, 0.95rem);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 input[type="file"] {
-  padding: 9px 10px;
-  font-size: 0.86rem;
+  padding: clamp(7px, 1vh, 9px) 10px;
+  font-size: clamp(0.78rem, 0.55rem + 0.35vh, 0.86rem);
 }
 
 input::placeholder {
@@ -285,7 +332,7 @@ select:disabled {
   display: flex;
   gap: 9px;
   align-items: flex-start;
-  margin-top: 12px;
+  margin-top: clamp(8px, 1.2vh, 12px);
 }
 
 .option-row input[type="checkbox"] {
@@ -304,12 +351,12 @@ select:disabled {
 .option-hint {
   margin: 4px 0 0 24px;
   color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.45;
+  font-size: clamp(0.72rem, 0.5rem + 0.35vh, 0.8rem);
+  line-height: 1.4;
 }
 
 .logo-block {
-  margin-top: 10px;
+  margin-top: clamp(6px, 1vh, 10px);
   margin-left: 24px;
 }
 
@@ -336,14 +383,14 @@ select:disabled {
 }
 
 .actions {
-  margin-top: 14px;
+  margin-top: clamp(10px, 1.4vh, 14px);
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
 .qr-size-control {
-  margin-top: 14px;
+  margin-top: clamp(10px, 1.4vh, 14px);
 }
 
 .qr-size-row {
@@ -378,8 +425,9 @@ select:disabled {
 button:not(.theme-btn):not(.lang-btn) {
   border: 0;
   border-radius: 9px;
-  padding: 11px 18px;
+  padding: clamp(8px, 1.2vh, 11px) clamp(12px, 1.6vw, 18px);
   font: inherit;
+  font-size: clamp(0.86rem, 0.55rem + 0.5vh, 0.95rem);
   font-weight: 600;
   cursor: pointer;
 }
@@ -401,17 +449,21 @@ button:not(.theme-btn):not(.lang-btn):disabled {
 
 .error {
   min-height: 1.25em;
-  margin-top: 11px;
+  margin-top: clamp(6px, 1vh, 11px);
   color: var(--danger);
-  font-size: 0.86rem;
+  font-size: clamp(0.78rem, 0.55rem + 0.35vh, 0.86rem);
+  flex: 0 0 auto;
 }
 
 .encoded {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: clamp(0.74rem, 0.5rem + 0.4vh, 0.82rem);
+  line-height: 1.4;
   word-break: break-word;
+  flex: 0 0 auto;
+  max-height: 4.2em;
+  overflow-y: auto;
 }
 
 .encoded strong {
@@ -422,16 +474,90 @@ button:not(.theme-btn):not(.lang-btn):disabled {
   color: var(--accent);
 }
 
+.calibrate-row {
+  margin: 0 0 clamp(6px, 1vh, 10px);
+  padding: clamp(6px, 1vh, 10px) 0;
+  flex: 0 0 auto;
+}
+
+.calibrate-track {
+  position: relative;
+  height: 22px;
+  background: color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 5px;
+  cursor: ew-resize;
+  user-select: none;
+  touch-action: none;
+  /* The track is the slider thumb area too — its leftmost pixel is the
+     ruler origin the user lines up with 0 cm. */
+}
+
+.calibrate-track:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.calibrate-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 189px;
+  max-width: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 5px 3px 3px 5px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  pointer-events: none;
+}
+
+.calibrate-bar-label {
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.calibrate-handle {
+  position: absolute;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
+  width: 8px;
+  background: var(--accent-2);
+  border: 2px solid var(--surface);
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.calibrate-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: clamp(0.68rem, 0.5rem + 0.3vh, 0.78rem);
+  line-height: 1.35;
+}
+
 .preview {
   margin-top: 0;
-  padding: 16px;
+  padding: clamp(8px, 1.4vh, 16px);
   border: 1px dashed var(--border);
   border-radius: 10px;
   background: var(--surface-alt);
   display: flex;
   justify-content: center;
-  min-height: 320px;
   align-items: center;
+  min-height: 0;
+  /* Cap preview height so very large render sizes do not push the layout
+     below the viewport. The canvas inside is downscaled via max-width/
+     max-height while the underlying pixel buffer (used for PNG/PDF
+     export) stays at full resolution. */
+  max-height: calc(100dvh - clamp(160px, 28vh, 260px));
+  overflow: hidden;
 }
 
 .preview.hidden {
@@ -440,26 +566,44 @@ button:not(.theme-btn):not(.lang-btn):disabled {
 
 .preview canvas {
   display: block;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #ffffff;
-  padding: 8px;
+  /* No padding / object-fit on the canvas itself: padding on <canvas>
+     interacts unpredictably with the bitmap-to-display-box mapping
+     across browsers (the bitmap sometimes fills the padding-box rather
+     than the content-box, which makes the on-screen size off by exactly
+     the padding amount). The preview's own border + padding already
+     provides the visual "card" framing. */
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .hint {
-  margin: 14px 0 0;
+  margin: clamp(8px, 1.4vh, 14px) 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.45;
+  font-size: clamp(0.72rem, 0.5rem + 0.35vh, 0.8rem);
+  line-height: 1.4;
+  flex: 0 0 auto;
 }
 
 @media (min-width: 980px) {
   .workspace {
-    grid-template-columns: minmax(460px, 1fr) minmax(340px, 0.8fr);
-    align-items: start;
-    gap: 20px;
+    grid-template-columns: minmax(420px, 1fr) minmax(300px, 0.8fr);
+    align-items: stretch;
+    gap: clamp(12px, 1.8vh, 20px);
+  }
+  .editor-column {
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .preview-column {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   .preview-column .preview {
-    position: sticky;
-    top: 24px;
+    flex: 1 1 auto;
+    position: static;
   }
 }

@@ -12,6 +12,7 @@ const files = {
   pdfBundle: new URL("../vendor/jspdf.mjs", import.meta.url),
   qrGlobal: new URL("../vendor/qrcode.global.js", import.meta.url),
   pdfGlobal: new URL("../vendor/jspdf.umd.min.js", import.meta.url),
+  barcodeGlobal: new URL("../vendor/jsbarcode.umd.min.js", import.meta.url),
 };
 
 function count(haystack, needle) {
@@ -21,8 +22,11 @@ function count(haystack, needle) {
 const index = await readFile(files.index, "utf8");
 assert.equal(count(index, "<!DOCTYPE html>"), 1, "index.html must contain exactly one HTML document");
 assert.match(index, /<script src="\.\/vendor\/qrcode\.global\.js"><\/script>/, "index.html must load the file-compatible QR bundle");
+assert.match(index, /<script src="\.\/vendor\/jsbarcode\.umd\.min\.js"><\/script>/, "index.html must load the file-compatible JsBarcode bundle");
 assert.match(index, /<script src="\.\/vendor\/jspdf\.umd\.min\.js"><\/script>/, "index.html must load the file-compatible PDF bundle");
 assert.match(index, /<script src="\.\/js\/app-browser\.js"><\/script>/, "index.html must load the file-compatible browser app");
+assert.match(index, /id="barcode-type"/, "index.html must expose the barcode type dropdown");
+assert.match(index, /<option[^>]+value="qr"/, "barcode type dropdown must include a QR option");
 assert.doesNotMatch(index, /http-equiv="refresh"/i, "index.html must not redirect away from the maintained app");
 
 const appSingle = await readFile(files.appSingle, "utf8");
@@ -38,10 +42,12 @@ const qrBundleStat = await stat(files.qrBundle);
 const pdfBundleStat = await stat(files.pdfBundle);
 const qrGlobalStat = await stat(files.qrGlobal);
 const pdfGlobalStat = await stat(files.pdfGlobal);
+const barcodeGlobalStat = await stat(files.barcodeGlobal);
 assert.ok(qrBundleStat.size > 10_000, "vendored QR bundle looks too small");
 assert.ok(pdfBundleStat.size > 100_000, "vendored jsPDF bundle looks too small");
 assert.ok(qrGlobalStat.size > 10_000, "vendored QR global bundle looks too small");
 assert.ok(pdfGlobalStat.size > 100_000, "vendored jsPDF UMD bundle looks too small");
+assert.ok(barcodeGlobalStat.size > 10_000, "vendored JsBarcode UMD bundle looks too small");
 
 const QRModule = await import(files.qrBundle.href);
 const QRCode = QRModule.default || QRModule;

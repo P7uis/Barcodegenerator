@@ -2,6 +2,7 @@ import { shortenUrlAuto } from "./shorten.js";
 import { renderQrToCanvas } from "./qr-render.js";
 import { loadQrModule } from "./qr-load.js";
 import { loadJsPdf } from "./pdf-load.js";
+import { injectPngDpi } from "./png-dpi.js";
 
 const THEME_KEY = "mediacapture-theme";
 const LANG_KEY = "mediacapture-lang";
@@ -69,7 +70,7 @@ const I18N = {
     shapeDots: "Dots",
     sizeLabel: "QR outer size (cm)",
     shortenLabel: "Shorten link first (is.gd, then v.gd)",
-    shortenHint: "Only applies to web links. The URL is sent to is.gd, then v.gd if the first service fails.",
+    shortenHint: "Shorten your link so a smaller QR code works better.",
     logoLabel: "Center logo on the QR",
     logoHint:
       "Uses high error correction. Remote logos require CORS headers for PNG export. If both URL and file are provided, the URL is used.",
@@ -122,7 +123,7 @@ const I18N = {
     shapeDots: "Punten",
     sizeLabel: "Buitenmaat QR (cm)",
     shortenLabel: "Link eerst inkorten (is.gd, daarna v.gd)",
-    shortenHint: "Geldt alleen voor weblinks. De URL wordt naar is.gd gestuurd, daarna naar v.gd als de eerste dienst faalt.",
+    shortenHint: "Laat je Link inkorten zodat een kleinere QR code beter werkt.",
     logoLabel: "Centraal logo op de QR",
     logoHint:
       "Gebruikt hoge foutcorrectie. Externe logo's vereisen CORS-headers voor PNG-export. Als zowel URL als bestand is ingevuld, wordt de URL gebruikt.",
@@ -175,7 +176,7 @@ const I18N = {
     shapeDots: "Punkte",
     sizeLabel: "QR-Aussenmass (cm)",
     shortenLabel: "Link zuerst kuerzen (is.gd, dann v.gd)",
-    shortenHint: "Gilt nur fuer Weblinks. Die URL wird an is.gd gesendet, danach an v.gd, falls der erste Dienst fehlschlaegt.",
+    shortenHint: "Kuerze deinen Link, damit ein kleinerer QR-Code besser funktioniert.",
     logoLabel: "Zentrales Logo auf dem QR",
     logoHint:
       "Verwendet eine hohe Fehlerkorrektur. Externe Logos benoetigen CORS-Header fuer den PNG-Export. Wenn sowohl URL als auch Datei gesetzt sind, wird die URL verwendet.",
@@ -262,6 +263,42 @@ function parseQrSizeCm() {
   return { ok: true, cm: Math.round(num * 10) / 10 };
 }
 
+/**
+ * Sizes the visible canvas so the bitmap displays at exactly `lastQrSizeCm`
+ * cm at 100% browser zoom, capped to the preview container with aspect
+ * ratio preserved. Does not touch the underlying bitmap used for export.
+ */
+function applyPreviewDisplaySize() {
+  if (preview.classList.contains("hidden")) return;
+  if (!canvas.width || !canvas.height) return;
+
+  const previewBox = preview.getBoundingClientRect();
+  if (previewBox.width === 0 || previewBox.height === 0) return;
+
+  const previewStyle = window.getComputedStyle(preview);
+  const padPreviewX =
+    parseFloat(previewStyle.paddingLeft) + parseFloat(previewStyle.paddingRight);
+  const padPreviewY =
+    parseFloat(previewStyle.paddingTop) + parseFloat(previewStyle.paddingBottom);
+
+  const availW = Math.max(0, previewBox.width - padPreviewX);
+  const availH = Math.max(0, previewBox.height - padPreviewY);
+  if (availW <= 0 || availH <= 0) return;
+
+  // Canvas has no padding (see css/app.css), so its display box equals
+  // its content/bitmap box. Map cm → CSS px directly.
+  const cssPxPerCm = 96 / CM_PER_INCH;
+  const aspect = canvas.height / canvas.width;
+  const cm = Math.max(0.1, lastQrSizeCm);
+  const desiredW = cm * cssPxPerCm;
+  const desiredH = desiredW * aspect;
+  if (desiredW <= 0 || desiredH <= 0) return;
+
+  const scale = Math.min(1, availW / desiredW, availH / desiredH);
+  canvas.style.width = `${desiredW * scale}px`;
+  canvas.style.height = `${desiredH * scale}px`;
+}
+
 function normalizeHttpUrl(raw) {
   const s = (raw || "").trim();
   if (!s) return null;
@@ -333,7 +370,6 @@ function syncModeUi() {
 function applyTranslations() {
   document.documentElement.lang = currentLanguage;
   document.title = t("pageTitle");
-  setText("header-title", t("headerTitle"));
   setText("lead-copy", t("lead"));
   setText("language-label", t("languageLabel"));
   setText("theme-label", t("themeLabel"));
@@ -361,7 +397,6 @@ function applyTranslations() {
   setText("generate", t("generate"));
   setText("download", t("download"));
   setText("download-pdf", t("downloadPdf"));
-  setText("footer-hint", t("hint"));
   logoUrlInput.placeholder = t("logoUrlPlaceholder");
   paintLanguageButtons();
   paintThemeButtons();
@@ -555,7 +590,7 @@ function escapeAttr(s) {
 async function onGenerate() {
   setError("");
   lastEncodedPayload = null;
-  encodedEl.textContent = "";
+  if (encodedEl) encodedEl.textContent = "";
   preview.classList.add("hidden");
   btnDl.disabled = true;
   btnPdf.disabled = true;
@@ -587,8 +622,10 @@ async function onGenerate() {
     const renderPx = Math.max(128, Math.min(4096, Math.round(qrSize.cm * PX_PER_CM)));
 
     await renderQrToCanvas(canvas, payload, QRCode, {
+      // margin: 0 means the bitmap === the visible QR pattern, so the chosen
+      // "outer size" equals what the user measures with a ruler.
       width: renderPx,
-      margin: 2,
+      margin: 0,
       logoImage: logoForQr,
       logoSizeFraction: getLogoSizeFraction(),
       moduleShape,
@@ -596,12 +633,15 @@ async function onGenerate() {
 
     lastEncodedPayload = payload;
     lastQrSizeCm = qrSize.cm;
-    if (mode === "url") {
-      encodedEl.innerHTML = `<strong>${escapeHtml(t("encodedPrefix"))}</strong> <a href="${escapeAttr(payload)}" rel="noopener noreferrer" target="_blank">${escapeHtml(payload)}</a>`;
-    } else {
-      encodedEl.innerHTML = `<strong>${escapeHtml(t("encodedPrefix"))}</strong> ${escapeHtml(payload)}`;
+    if (encodedEl) {
+      if (mode === "url") {
+        encodedEl.innerHTML = `<strong>${escapeHtml(t("encodedPrefix"))}</strong> <a href="${escapeAttr(payload)}" rel="noopener noreferrer" target="_blank">${escapeHtml(payload)}</a>`;
+      } else {
+        encodedEl.innerHTML = `<strong>${escapeHtml(t("encodedPrefix"))}</strong> ${escapeHtml(payload)}`;
+      }
     }
     preview.classList.remove("hidden");
+    applyPreviewDisplaySize();
     btnDl.disabled = false;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -617,9 +657,16 @@ function onDownload() {
     return;
   }
   try {
+    // Derive the embedded DPI from the actual rendered pixel size so the
+    // saved PNG truly represents `lastQrSizeCm` cm at whatever pixel count
+    // we ended up with (the 128/4096 px clamps in onGenerate can otherwise
+    // drift the effective DPI for very small or very large requests).
+    const cm = Math.max(0.1, lastQrSizeCm || MIN_QR_CM);
+    const dpi = (canvas.width / cm) * CM_PER_INCH;
+    const dataUrl = injectPngDpi(canvas.toDataURL("image/png"), dpi);
     const a = document.createElement("a");
     a.download = "qrcode.png";
-    a.href = canvas.toDataURL("image/png");
+    a.href = dataUrl;
     a.click();
   } catch {
     setError(t("errDownloadFailed"));
@@ -666,6 +713,19 @@ btnPdf.addEventListener("click", () => {
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void onGenerate();
 });
+
+let resizeRaf = 0;
+function schedulePreviewResize() {
+  if (resizeRaf) cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = 0;
+    applyPreviewDisplaySize();
+  });
+}
+window.addEventListener("resize", schedulePreviewResize);
+if (typeof ResizeObserver === "function") {
+  new ResizeObserver(schedulePreviewResize).observe(preview);
+}
 
 initTheme();
 initLanguage();
