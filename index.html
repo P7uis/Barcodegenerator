@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QR Creator Tool</title>
+  <script>
+    (function () {
+      try {
+        var key = "mediacapture-theme";
+        var pref = localStorage.getItem(key);
+        if (pref !== "light" && pref !== "dark" && pref !== "auto") {
+          pref = "auto";
+        }
+        var isDark = pref === "dark" || (pref === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.remove("mc-theme-light", "mc-theme-dark");
+        document.documentElement.classList.add(isDark ? "mc-theme-dark" : "mc-theme-light");
+        document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+      } catch (e) {
+        document.documentElement.classList.add("mc-theme-light");
+        document.documentElement.style.colorScheme = "light";
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="./css/app.css" />
+</head>
+<body>
+  <div class="chrome-stack" id="chromeStack">
+    <div class="lang-switcher" role="group" id="language-group" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="nl" aria-label="Nederlands">
+        <span class="lang-flag" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 6" width="30" height="20" focusable="false"><path fill="#AE1C28" d="M0 0h9v2H0z"/><path fill="#FFF" d="M0 2h9v2H0z"/><path fill="#21468B" d="M0 4h9v2H0z"/></svg></span>
+      </button>
+      <button type="button" class="lang-btn" data-lang="en" aria-label="English">
+        <span class="lang-flag" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" width="30" height="15" focusable="false"><clipPath id="langClipGb"><path d="M0 0h60v30H0z"/></clipPath><path fill="#012169" d="M0 0h60v30H0z"/><path stroke="#FFF" stroke-width="6" d="M0 0l60 30M60 0L0 30" clip-path="url(#langClipGb)"/><path stroke="#C8102E" stroke-width="4" d="M0 0l60 30M60 0L0 30" clip-path="url(#langClipGb)"/><path stroke="#FFF" stroke-width="10" d="M30 0v30M0 15h60" clip-path="url(#langClipGb)"/><path stroke="#C8102E" stroke-width="6" d="M30 0v30M0 15h60" clip-path="url(#langClipGb)"/></svg></span>
+      </button>
+      <button type="button" class="lang-btn" data-lang="de" aria-label="Deutsch">
+        <span class="lang-flag" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5 3" width="30" height="18" focusable="false"><path fill="#000" d="M0 0h5v1H0z"/><path fill="#D00" d="M0 1h5v1H0z"/><path fill="#FFCE00" d="M0 2h5v1H0z"/></svg></span>
+      </button>
+    </div>
+    <div class="theme-switcher" role="group" id="theme-group" aria-label="Theme">
+      <button type="button" id="theme-opt-light" class="theme-btn" data-theme-pref="light" aria-pressed="false" aria-label="Light theme">
+        <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+      </button>
+      <button type="button" id="theme-opt-auto" class="theme-btn" data-theme-pref="auto" aria-pressed="false" aria-label="Auto theme">
+        <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+      </button>
+      <button type="button" id="theme-opt-dark" class="theme-btn" data-theme-pref="dark" aria-pressed="false" aria-label="Dark theme">
+        <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+      </button>
+    </div>
+  </div>
+
+  <main class="app-shell">
+    <header class="topbar">
+      <h1 id="header-title">QR Creator Tool</h1>
+    </header>
+
+    <p id="lead-copy" class="lead">
+      Generate a QR code for a web link or plain text. You can shorten links, upload a center logo, and style QR elements.
+    </p>
+
+    <div class="workspace">
+      <section class="editor-column">
+        <section class="panel">
+          <div class="field-grid">
+            <div class="field">
+              <label id="mode-label" for="mode-select">Content type</label>
+              <select id="mode-select">
+                <option id="mode-opt-url" value="url">Web link</option>
+                <option id="mode-opt-text" value="text">Plain text</option>
+              </select>
+            </div>
+            <div class="field">
+              <label id="shape-label" for="shape-select">QR style</label>
+              <select id="shape-select">
+                <option id="shape-opt-square" value="square">Square</option>
+                <option id="shape-opt-rounded" value="rounded">Rounded</option>
+                <option id="shape-opt-dots" value="dots">Dots</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label id="payload-label" for="payload">Web address</label>
+            <input id="payload" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/page" />
+          </div>
+
+          <div class="option-row">
+            <input type="checkbox" id="opt-shorten" />
+            <label id="opt-shorten-label" for="opt-shorten">Shorten link first (is.gd, then v.gd)</label>
+          </div>
+          <p id="shorten-hint" class="option-hint">Runs only for web links when you click Generate.</p>
+
+          <div class="option-row">
+            <input type="checkbox" id="opt-logo" />
+            <label id="opt-logo-label" for="opt-logo">Center logo on the QR</label>
+          </div>
+          <p id="logo-hint" class="option-hint">
+            Uses high error correction. QR dots under the visible logo pixels are removed. If both URL and file are set, URL is used.
+          </p>
+
+          <div class="logo-block">
+            <label id="logo-url-label" class="sub-label" for="logo-url">Logo image URL (https, optional)</label>
+            <input id="logo-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/logo.png" disabled />
+            <label id="logo-file-label" class="sub-label" for="logo-file">Or local file</label>
+            <input type="file" id="logo-file" accept="image/*" disabled />
+            <label id="logo-size-label" class="sub-label" for="logo-size">Center logo max side (cm)</label>
+            <div class="logo-size-row">
+              <input id="logo-size" type="range" min="0.5" max="1.1" step="0.1" value="0.9" disabled />
+              <span id="logo-size-value">0.9 cm</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="qr-size-control">
+          <label id="size-label" for="qr-size-cm">QR outer size</label>
+          <div class="qr-size-row">
+            <span id="qr-size-value" class="qr-size-value">4 CM</span>
+            <input id="qr-size-slider" type="range" min="2" max="10" step="0.5" value="4" />
+            <input id="qr-size-cm" class="qr-size-number" type="number" min="1" max="1000" step="0.1" value="4" inputmode="decimal" aria-label="QR outer size in cm" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="generate" type="button" class="btn-primary">Generate QR</button>
+          <button id="download" type="button" class="btn-secondary" disabled>Download PNG</button>
+          <button id="download-pdf" type="button" class="btn-secondary" disabled>Download A4 PDF</button>
+        </div>
+      </section>
+
+      <section class="preview-column">
+        <div class="preview hidden" id="preview">
+          <canvas id="qr-canvas" width="256" height="256" aria-label="QR code preview"></canvas>
+        </div>
+      </section>
+    </div>
+
+    <div class="error" id="error" aria-live="polite"></div>
+    <div class="encoded" id="encoded-text" aria-live="polite"></div>
+
+    <p id="footer-hint" class="hint">
+      If a web address has no scheme, https:// is assumed. QR and PDF generation run from local bundled libraries. Link shortening sends the URL to is.gd or v.gd.
+    </p>
+  </main>
+
+  <script src="./vendor/qrcode.global.js"></script>
+  <script src="./vendor/jspdf.umd.min.js"></script>
+  <script src="./js/app-browser.js"></script>
+</body>
+</html>
