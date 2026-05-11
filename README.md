@@ -2,6 +2,8 @@
 
 A static browser app for generating QR codes from web links or plain text.
 
+Feel free to make pull requests to improve this education project.
+
 ## Features
 
 - Generate QR codes from `http`/`https` links or plain text.
