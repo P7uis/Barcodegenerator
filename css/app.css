@@ -78,15 +78,69 @@ body {
 }
 
 .topbar .barcode-type-field select {
+  /* Match the scan button exactly so they share the same baseline + height. */
   width: auto;
   max-width: min(420px, 90vw);
-  font-size: clamp(1.05rem, 0.6rem + 1vh, 1.45rem);
+  font-size: clamp(0.82rem, 0.55rem + 0.45vh, 0.95rem);
   font-weight: 600;
   letter-spacing: -0.01em;
-  padding: clamp(6px, 1vh, 10px) clamp(14px, 1.2vw, 20px);
+  line-height: 1.2;
+  /* Extra right-padding leaves room for the custom chevron icon. */
+  padding: clamp(6px, 1vh, 10px) clamp(32px, 2.6vw, 42px) clamp(6px, 1vh, 10px) clamp(12px, 1.2vw, 18px);
   border-radius: 10px;
   text-align: left;
   text-align-last: left;
+  color: var(--text);
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23808a99' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right clamp(10px, 1vw, 14px) center / 14px 14px,
+    color-mix(in srgb, var(--accent) 8%, var(--surface));
+  box-shadow: 0 4px 10px -8px color-mix(in srgb, var(--accent) 55%, transparent);
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.15s ease, box-shadow 0.2s ease, background-color 0.15s ease;
+}
+
+.topbar .barcode-type-field select:hover {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
+  box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.topbar .barcode-type-field select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+/* The native list of <option>s falls back to the OS palette, so make sure
+   it remains legible on both themes. */
+.topbar .barcode-type-field select option {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.topbar-scan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding: clamp(6px, 1vh, 10px) clamp(12px, 1.2vw, 18px);
+  border-radius: 10px;
+  font-size: clamp(0.82rem, 0.55rem + 0.45vh, 0.95rem);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  /* Transparent 1px border so the visual height equals the dropdown,
+     which has a 1px accent-tinted border of its own. */
+  border: 1px solid transparent;
+}
+
+.topbar-scan-icon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
 }
 
 .chrome-stack {
@@ -261,8 +315,107 @@ label {
 }
 
 .qr-only.is-hidden,
-.barcode-only.is-hidden {
+.barcode-only.is-hidden,
+.generator-only.is-hidden,
+.scanner-only.is-hidden {
   display: none !important;
+}
+
+.scanner-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.scanner-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.scanner-status[data-tone="error"] {
+  color: var(--danger, #c0392b);
+}
+
+.scanner-stage {
+  position: relative;
+  background: #000;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  max-height: 100%;
+}
+
+.scanner-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+.scanner-overlay {
+  position: absolute;
+  inset: 12% 12%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.scanner-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.scanner-result-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.scanner-result-format {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
+
+.scanner-result-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+  white-space: pre-wrap;
+  color: var(--text, inherit);
+}
+
+.scanner-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scanner-open-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .editor-column {

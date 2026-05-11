@@ -517,8 +517,46 @@ const preview = document.getElementById("preview");
 const canvas = document.getElementById("qr-canvas");
 const encodedEl = document.getElementById("encoded-text");
 const qrOnlyElements = Array.from(document.querySelectorAll(".qr-only"));
+const generatorOnlyElements = Array.from(document.querySelectorAll(".generator-only"));
+const scannerOnlyElements = Array.from(document.querySelectorAll(".scanner-only"));
 const calBar = document.getElementById("calibrate-bar");
 const calTrack = document.getElementById("calibrate-track");
+
+// Scanner-related DOM refs (all may be null if scanner UI is omitted by a fork).
+const scannerVideo = /** @type {HTMLVideoElement|null} */ (document.getElementById("scanner-video"));
+const scannerStatus = document.getElementById("scanner-status");
+const scannerStartBtn = document.getElementById("scanner-start");
+const scannerStopBtn = document.getElementById("scanner-stop");
+const scannerCopyBtn = document.getElementById("scanner-copy");
+const scannerAgainBtn = document.getElementById("scanner-again");
+const scannerOpenLink = /** @type {HTMLAnchorElement|null} */ (document.getElementById("scanner-open"));
+const scannerResult = document.getElementById("scanner-result");
+const scannerResultText = document.getElementById("scanner-result-text");
+const scannerResultFormat = document.getElementById("scanner-result-format");
+
+// Browser BarcodeDetector format list to request. We intersect with the set
+// the browser actually supports at runtime (Chromium ≥ 87 covers most of
+// these; Safari 17+ covers the common ones; Firefox is unsupported).
+const SCAN_FORMATS = [
+  "qr_code",
+  "code_128",
+  "code_39",
+  "code_93",
+  "codabar",
+  "ean_13",
+  "ean_8",
+  "itf",
+  "upc_a",
+  "upc_e",
+  "data_matrix",
+  "pdf417",
+  "aztec",
+];
+
+let scannerRunning = false;
+/** @type {MediaStream|null} */ let scannerStream = null;
+/** @type {any} */ let barcodeDetector = null;
+let scannerRafId = 0;
 
 /** @type {string | null} */
 let lastEncodedPayload = null;
@@ -618,6 +656,29 @@ const I18N = {
       "Download failed (canvas may be tainted). Try a logo file instead of URL, or a CORS-enabled logo URL.",
     errInvalidSize: "Enter a valid size between 1 and 1000 cm.",
     errPdfTooLarge: "For A4 export, choose a size up to 20 cm.",
+    scannerOption: "Barcode scanner",
+    scannerShortcut: "Scan a code",
+    scannerShortcutAria: "Switch to barcode scanner",
+    scannerTitle: "Camera scanner",
+    leadScanner:
+      "Point your camera at a QR code or 1D barcode (Code 128, EAN, UPC, Code 39, ITF, Codabar, Data Matrix, PDF417, Aztec). The result appears below.",
+    scannerStartHelp: "Click Start to scan with your camera.",
+    scannerStart: "Start scan",
+    scannerStop: "Stop",
+    scannerScanning: "Scanning... point at a code.",
+    scannerScanAgain: "Scan again",
+    scannerCopy: "Copy",
+    scannerCopied: "Copied!",
+    scannerOpenLink: "Open link",
+    scannerStopped: "Scanner stopped.",
+    scannerNotSupported:
+      "Your browser does not support barcode scanning. Try Chrome, Edge, or Safari 17+.",
+    scannerNeedsHttps:
+      "Camera access requires an https:// page or localhost. Open this app from a web server, not from a file:// URL.",
+    scannerPermissionDenied:
+      "Camera permission denied. Allow camera access in your browser settings and try again.",
+    scannerNoCamera: "No camera was found on this device.",
+    scannerCameraError: "Could not start the camera.",
   },
   nl: {
     pageTitle: "Barcode Maker Tool",
@@ -677,6 +738,29 @@ const I18N = {
       "Download mislukt (canvas is mogelijk vervuild). Gebruik een lokaal logo of een URL met CORS.",
     errInvalidSize: "Vul een geldige grootte in tussen 1 en 1000 cm.",
     errPdfTooLarge: "Kies voor A4-export een grootte van maximaal 20 cm.",
+    scannerOption: "Barcode-scanner",
+    scannerShortcut: "Scan een code",
+    scannerShortcutAria: "Wissel naar barcode-scanner",
+    scannerTitle: "Camerascanner",
+    leadScanner:
+      "Richt je camera op een QR-code of 1D-barcode (Code 128, EAN, UPC, Code 39, ITF, Codabar, Data Matrix, PDF417, Aztec). Het resultaat verschijnt hieronder.",
+    scannerStartHelp: "Klik op Start om met je camera te scannen.",
+    scannerStart: "Start scan",
+    scannerStop: "Stop",
+    scannerScanning: "Bezig met scannen... richt op een code.",
+    scannerScanAgain: "Opnieuw scannen",
+    scannerCopy: "Kopieer",
+    scannerCopied: "Gekopieerd!",
+    scannerOpenLink: "Open link",
+    scannerStopped: "Scanner gestopt.",
+    scannerNotSupported:
+      "Je browser ondersteunt geen barcode-scannen. Probeer Chrome, Edge of Safari 17+.",
+    scannerNeedsHttps:
+      "Cameratoegang vereist een https://-pagina of localhost. Open deze app via een webserver, niet via een file://-URL.",
+    scannerPermissionDenied:
+      "Geen toestemming voor camera. Sta camera-toegang toe in je browser en probeer opnieuw.",
+    scannerNoCamera: "Er is geen camera gevonden op dit apparaat.",
+    scannerCameraError: "Kon de camera niet starten.",
   },
   de: {
     pageTitle: "Barcode-Generator",
@@ -736,6 +820,29 @@ const I18N = {
       "Download fehlgeschlagen (Canvas moeglicherweise \"tainted\"). Verwende eine lokale Datei oder eine CORS-faehige URL.",
     errInvalidSize: "Bitte eine gueltige Groesse zwischen 1 und 1000 cm eingeben.",
     errPdfTooLarge: "Fuer den A4-Export bitte eine Groesse bis maximal 20 cm waehlen.",
+    scannerOption: "Barcode-Scanner",
+    scannerShortcut: "Code scannen",
+    scannerShortcutAria: "Zum Barcode-Scanner wechseln",
+    scannerTitle: "Kamerascanner",
+    leadScanner:
+      "Richte die Kamera auf einen QR-Code oder 1D-Barcode (Code 128, EAN, UPC, Code 39, ITF, Codabar, Data Matrix, PDF417, Aztec). Das Ergebnis erscheint unten.",
+    scannerStartHelp: "Klicke auf Start, um mit deiner Kamera zu scannen.",
+    scannerStart: "Scan starten",
+    scannerStop: "Stopp",
+    scannerScanning: "Wird gescannt... auf einen Code richten.",
+    scannerScanAgain: "Erneut scannen",
+    scannerCopy: "Kopieren",
+    scannerCopied: "Kopiert!",
+    scannerOpenLink: "Link oeffnen",
+    scannerStopped: "Scanner gestoppt.",
+    scannerNotSupported:
+      "Dein Browser unterstuetzt das Scannen von Barcodes nicht. Probiere Chrome, Edge oder Safari 17+.",
+    scannerNeedsHttps:
+      "Kamerazugriff erfordert eine https://-Seite oder localhost. Oeffne diese App ueber einen Webserver, nicht via file://.",
+    scannerPermissionDenied:
+      "Kamerazugriff verweigert. Erlaube den Kamerazugriff in den Browsereinstellungen und versuche es erneut.",
+    scannerNoCamera: "Auf diesem Geraet wurde keine Kamera gefunden.",
+    scannerCameraError: "Die Kamera konnte nicht gestartet werden.",
   },
 };
 
@@ -1045,12 +1152,39 @@ function setText(id, value) {
 }
 
 function syncBarcodeTypeUi() {
-  currentBarcodeType = BARCODE_TYPES[barcodeTypeSelect.value] ? barcodeTypeSelect.value : "qr";
-  const def = BARCODE_TYPES[currentBarcodeType];
-  const isQr = def.kind === "qr";
+  const selected = barcodeTypeSelect.value;
+  const isScanner = selected === "scanner";
+  currentBarcodeType = isScanner
+    ? "scanner"
+    : BARCODE_TYPES[selected]
+    ? selected
+    : "qr";
+  const def = isScanner ? null : BARCODE_TYPES[currentBarcodeType];
+  const isQr = !isScanner && def.kind === "qr";
 
   for (const el of qrOnlyElements) {
     el.classList.toggle("is-hidden", !isQr);
+  }
+  for (const el of generatorOnlyElements) {
+    el.classList.toggle("is-hidden", isScanner);
+  }
+  for (const el of scannerOnlyElements) {
+    el.classList.toggle("is-hidden", !isScanner);
+  }
+
+  // Always stop the camera before switching to a new mode. If we are
+  // entering scanner mode, that is a clean no-op; if we are leaving it,
+  // it ensures the LED turns off and the stream is released.
+  stopScanner({ keepResult: isScanner });
+
+  setText("lead-copy", isScanner ? t("leadScanner") : t("lead"));
+
+  if (isScanner) {
+    setText("scanner-status", t("scannerStartHelp"));
+    if (scannerStatus) scannerStatus.removeAttribute("data-tone");
+    if (scannerStartBtn) scannerStartBtn.disabled = false;
+    if (scannerStopBtn) scannerStopBtn.disabled = true;
+    return;
   }
 
   const payloadLabel = document.getElementById("payload-label");
@@ -1105,6 +1239,16 @@ function applyTranslations() {
   setText("generate", t("generate"));
   setText("download", t("download"));
   setText("download-pdf", t("downloadPdf"));
+  setText("bt-opt-scanner", t("scannerOption"));
+  setText("open-scanner-label", t("scannerShortcut"));
+  const openScannerBtn = document.getElementById("open-scanner");
+  if (openScannerBtn) openScannerBtn.setAttribute("aria-label", t("scannerShortcutAria"));
+  setText("scanner-title", t("scannerTitle"));
+  setText("scanner-start", t("scannerStart"));
+  setText("scanner-stop", t("scannerStop"));
+  setText("scanner-copy", t("scannerCopy"));
+  setText("scanner-again", t("scannerScanAgain"));
+  if (scannerOpenLink) scannerOpenLink.textContent = t("scannerOpenLink");
   logoUrlInput.placeholder = t("logoUrlPlaceholder");
   paintLanguageButtons();
   paintThemeButtons();
@@ -1443,6 +1587,220 @@ async function onDownloadPdf() {
     setError(t("errDownloadFailed"));
   }
 }
+
+function setScannerStatus(message, tone) {
+  if (!scannerStatus) return;
+  scannerStatus.textContent = message;
+  if (tone) scannerStatus.setAttribute("data-tone", tone);
+  else scannerStatus.removeAttribute("data-tone");
+}
+
+function getBarcodeDetectorClass() {
+  return typeof globalThis.BarcodeDetector === "function"
+    ? globalThis.BarcodeDetector
+    : null;
+}
+
+async function getSupportedScanFormats(Detector) {
+  try {
+    if (Detector && typeof Detector.getSupportedFormats === "function") {
+      const supported = await Detector.getSupportedFormats();
+      const set = new Set(supported);
+      const filtered = SCAN_FORMATS.filter((f) => set.has(f));
+      if (filtered.length > 0) return filtered;
+    }
+  } catch {
+    /* fall through */
+  }
+  return SCAN_FORMATS;
+}
+
+function isSecureCameraContext() {
+  if (typeof window === "undefined") return false;
+  if (window.isSecureContext) return true;
+  // getUserMedia is also allowed on localhost.
+  const host = window.location && window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+async function startScanner() {
+  if (scannerRunning) return;
+  if (!scannerVideo) return;
+
+  const Detector = getBarcodeDetectorClass();
+  if (!Detector) {
+    setScannerStatus(t("scannerNotSupported"), "error");
+    return;
+  }
+  if (!isSecureCameraContext()) {
+    setScannerStatus(t("scannerNeedsHttps"), "error");
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setScannerStatus(t("scannerNotSupported"), "error");
+    return;
+  }
+
+  setScannerStatus(t("scannerScanning"));
+  if (scannerStartBtn) scannerStartBtn.disabled = true;
+  if (scannerStopBtn) scannerStopBtn.disabled = false;
+  if (scannerResult) scannerResult.classList.add("is-hidden");
+
+  try {
+    const formats = await getSupportedScanFormats(Detector);
+    barcodeDetector = new Detector({ formats });
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false,
+    });
+    scannerVideo.srcObject = scannerStream;
+    await scannerVideo.play().catch(() => {
+      /* play() can reject on some autoplay policies; the stream still flows */
+    });
+    scannerRunning = true;
+    scanFrameLoop();
+  } catch (err) {
+    scannerRunning = false;
+    if (scannerStartBtn) scannerStartBtn.disabled = false;
+    if (scannerStopBtn) scannerStopBtn.disabled = true;
+    const name = err && err.name;
+    if (name === "NotAllowedError" || name === "SecurityError") {
+      setScannerStatus(t("scannerPermissionDenied"), "error");
+    } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+      setScannerStatus(t("scannerNoCamera"), "error");
+    } else {
+      const msg = err && err.message ? `${t("scannerCameraError")} (${err.message})` : t("scannerCameraError");
+      setScannerStatus(msg, "error");
+    }
+  }
+}
+
+function stopScanner(opts = {}) {
+  scannerRunning = false;
+  if (scannerRafId) {
+    cancelAnimationFrame(scannerRafId);
+    scannerRafId = 0;
+  }
+  if (scannerStream) {
+    for (const track of scannerStream.getTracks()) {
+      try { track.stop(); } catch { /* ignore */ }
+    }
+    scannerStream = null;
+  }
+  if (scannerVideo) scannerVideo.srcObject = null;
+  if (scannerStartBtn) scannerStartBtn.disabled = false;
+  if (scannerStopBtn) scannerStopBtn.disabled = true;
+  if (!opts.keepResult && scannerResult) scannerResult.classList.add("is-hidden");
+}
+
+function scanFrameLoop() {
+  if (!scannerRunning || !scannerVideo || !barcodeDetector) return;
+  const tick = async () => {
+    if (!scannerRunning) return;
+    try {
+      if (scannerVideo.readyState >= 2 && scannerVideo.videoWidth > 0) {
+        const results = await barcodeDetector.detect(scannerVideo);
+        if (results && results.length > 0) {
+          handleScanResult(results[0]);
+          return;
+        }
+      }
+    } catch {
+      // Some browsers throw transient errors while the stream is settling.
+      // Just retry on the next frame.
+    }
+    scannerRafId = requestAnimationFrame(tick);
+  };
+  scannerRafId = requestAnimationFrame(tick);
+}
+
+function formatLabelForScan(format) {
+  if (!format) return "";
+  return String(format).replace(/_/g, " ").toUpperCase();
+}
+
+function isHttpLink(text) {
+  if (!text) return false;
+  try {
+    const u = new URL(text);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function handleScanResult(detected) {
+  const value = (detected && detected.rawValue) || "";
+  const format = (detected && detected.format) || "";
+
+  // Stop the camera promptly; user can re-start with "Scan again".
+  stopScanner({ keepResult: true });
+
+  if (scannerResultText) scannerResultText.textContent = value;
+  if (scannerResultFormat) scannerResultFormat.textContent = formatLabelForScan(format);
+  if (scannerOpenLink) {
+    if (isHttpLink(value)) {
+      scannerOpenLink.href = value;
+      scannerOpenLink.hidden = false;
+    } else {
+      scannerOpenLink.removeAttribute("href");
+      scannerOpenLink.hidden = true;
+    }
+  }
+  if (scannerResult) scannerResult.classList.remove("is-hidden");
+  setScannerStatus(t("scannerStopped"));
+
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try { navigator.vibrate(80); } catch { /* ignore */ }
+  }
+}
+
+async function onScannerCopy() {
+  if (!scannerResultText) return;
+  const value = scannerResultText.textContent || "";
+  if (!value) return;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(value);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = value;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "absolute";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setScannerStatus(t("scannerCopied"));
+  } catch {
+    /* swallow — copy is best-effort */
+  }
+}
+
+if (scannerStartBtn) scannerStartBtn.addEventListener("click", () => { void startScanner(); });
+if (scannerStopBtn) scannerStopBtn.addEventListener("click", () => { stopScanner(); });
+if (scannerAgainBtn) scannerAgainBtn.addEventListener("click", () => { void startScanner(); });
+if (scannerCopyBtn) scannerCopyBtn.addEventListener("click", () => { void onScannerCopy(); });
+
+// Topbar shortcut: jump straight to scanner mode. Dispatch a real
+// "change" event so the existing barcodeTypeSelect handler runs (which
+// also clears the preview/result state, just like manual selection).
+const openScannerBtn = document.getElementById("open-scanner");
+if (openScannerBtn) {
+  openScannerBtn.addEventListener("click", () => {
+    if (barcodeTypeSelect.value === "scanner") return;
+    barcodeTypeSelect.value = "scanner";
+    barcodeTypeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+// Free the camera if the user closes / hides the tab while scanning.
+window.addEventListener("pagehide", () => stopScanner());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") stopScanner();
+});
 
 barcodeTypeSelect.addEventListener("change", () => {
   syncBarcodeTypeUi();
