@@ -1,0 +1,49 @@
+---
+description: Mandatory semver version bump on every change to this repo
+alwaysApply: true
+---
+
+# Mandatory version bump on every change
+
+Every change in this repo MUST bump the application version. No exceptions.
+This applies to features, bug fixes, deployment fixes, docs/README edits,
+copy/i18n tweaks, CSS-only tweaks, and dependency bumps.
+
+## Two locations to update (in the same commit)
+
+1. `index.html` — the `<span id="app-footer-version">` text in the floating
+   footer near the bottom of the file (currently `v1.1.1`).
+2. `package.json` — the `"version"` field (currently `"1.1.1"`).
+
+Both must show the **same** number after your change.
+
+## Semver rules
+
+- **patch** (`x.y.Z` → `x.y.Z+1`): fixes, docs, chores, deployment fixes,
+  internal refactors with no user-visible behavior change.
+- **minor** (`x.Y.0` → `x.(Y+1).0`): new user-visible feature, new UI,
+  new option, new language, etc.
+- **major** (`X.0.0` → `(X+1).0.0`): breaking changes (file format,
+  storage key migrations without compat, removed features, etc.).
+
+## Example
+
+```html
+<!-- index.html -->
+<span id="app-footer-version" class="app-footer-version">v1.2.0</span>
+```
+
+```json
+// package.json
+{ "version": "1.2.0" }
+```
+
+## Checklist before committing
+
+- [ ] Did I change anything in this repo? → Yes → bump required.
+- [ ] Did I update **both** `index.html` and `package.json` to the
+      **same** new version?
+- [ ] Does the bump match semver (patch / minor / major)?
+
+If you skip this, the floating footer will lie to users about what
+version they're running. Don't skip it.

@@ -210,16 +210,31 @@
   <!--
     Floating app footer.
 
-    AI / Cursor / human contributors:
-      Bump the version below on every change you ship. Use semver:
-        - patch (1.1.0 -> 1.1.1) for bug fixes,
-        - minor (1.1.0 -> 1.2.0) for new features,
-        - major (1.1.0 -> 2.0.0) for breaking changes.
-      Mirror the same value in /package.json -> "version" so npm tooling
-      stays in sync. Keep BOTH spots updated in the same commit.
+    MANDATORY VERSION BUMP RULE (read before editing ANY file in this repo)
+    =====================================================================
+    Every change shipped to this repo MUST bump the version below.
+    No exceptions. This includes:
+      - feature additions, refactors, bug fixes,
+      - deployment-only fixes (e.g. shipping a missed vendor asset),
+      - docs/README edits, copy/i18n tweaks, CSS-only tweaks,
+      - dependency bumps.
+
+    Use semver (current pattern: MAJOR.MINOR.PATCH):
+      - patch (x.y.Z -> x.y.Z+1) for fixes / docs / chores,
+      - minor (x.Y.0 -> x.(Y+1).0) for new user-visible features,
+      - major (X.0.0 -> (X+1).0.0) for breaking changes.
+
+    You MUST update BOTH of these in the same commit:
+      1. The <span id="app-footer-version"> text below in this file.
+      2. The "version" field in /package.json.
+
+    If you are an AI assistant (Cursor, Claude, Codex, Copilot, etc.):
+    this rule is also enforced in .cursor/rules/version-bump.mdc and
+    AGENTS.md. Do not skip it. If you forget, the user will (rightly)
+    push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v1.1.0</span>
+    <span id="app-footer-version" class="app-footer-version">v1.1.1</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
