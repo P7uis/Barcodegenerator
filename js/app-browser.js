@@ -558,6 +558,48 @@ let scannerRunning = false;
 /** @type {any} */ let barcodeDetector = null;
 let scannerRafId = 0;
 
+// Lazy-loaded jsQR polyfill (QR-only) used when the browser does not ship a
+// native BarcodeDetector. Loaded on demand from `vendor/jsqr.js`.
+/** @type {((data: Uint8ClampedArray, width: number, height: number) => any)|null} */
+let jsQrFn = null;
+let jsQrLoading = null;
+/** @type {HTMLCanvasElement|null} */
+let jsQrSampleCanvas = null;
+
+function loadJsQrLib() {
+  if (jsQrFn) return Promise.resolve(jsQrFn);
+  if (typeof window !== "undefined" && typeof window.jsQR === "function") {
+    jsQrFn = window.jsQR;
+    return Promise.resolve(jsQrFn);
+  }
+  if (jsQrLoading) return jsQrLoading;
+  jsQrLoading = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-jsqr="1"]');
+    const handle = (script) => {
+      script.addEventListener("load", () => {
+        if (typeof window.jsQR === "function") {
+          jsQrFn = window.jsQR;
+          resolve(jsQrFn);
+        } else {
+          reject(new Error("jsQR did not register a global"));
+        }
+      });
+      script.addEventListener("error", () => reject(new Error("Failed to load jsQR polyfill")));
+    };
+    if (existing) {
+      handle(existing);
+    } else {
+      const s = document.createElement("script");
+      s.src = "./vendor/jsqr.js";
+      s.async = true;
+      s.dataset.jsqr = "1";
+      handle(s);
+      document.head.appendChild(s);
+    }
+  });
+  return jsQrLoading;
+}
+
 /** @type {string | null} */
 let lastEncodedPayload = null;
 let lastQrSizeCm = 4;
@@ -666,6 +708,8 @@ const I18N = {
     scannerStart: "Start scan",
     scannerStop: "Stop",
     scannerScanning: "Scanning... point at a code.",
+    scannerScanningQrOnly: "Scanning for QR codes... (1D barcodes need a browser with native barcode detection).",
+    scannerLoadingFallback: "Loading QR fallback...",
     scannerScanAgain: "Scan again",
     scannerCopy: "Copy",
     scannerCopied: "Copied!",
@@ -748,6 +792,8 @@ const I18N = {
     scannerStart: "Start scan",
     scannerStop: "Stop",
     scannerScanning: "Bezig met scannen... richt op een code.",
+    scannerScanningQrOnly: "Bezig met scannen voor QR-codes... (1D-barcodes vereisen een browser met ingebouwde barcode-detectie).",
+    scannerLoadingFallback: "QR-fallback wordt geladen...",
     scannerScanAgain: "Opnieuw scannen",
     scannerCopy: "Kopieer",
     scannerCopied: "Gekopieerd!",
@@ -830,6 +876,8 @@ const I18N = {
     scannerStart: "Scan starten",
     scannerStop: "Stopp",
     scannerScanning: "Wird gescannt... auf einen Code richten.",
+    scannerScanningQrOnly: "Suche nach QR-Codes... (1D-Barcodes benoetigen einen Browser mit nativer Barcode-Erkennung).",
+    scannerLoadingFallback: "QR-Fallback wird geladen...",
     scannerScanAgain: "Erneut scannen",
     scannerCopy: "Kopieren",
     scannerCopied: "Kopiert!",
@@ -1627,11 +1675,6 @@ async function startScanner() {
   if (scannerRunning) return;
   if (!scannerVideo) return;
 
-  const Detector = getBarcodeDetectorClass();
-  if (!Detector) {
-    setScannerStatus(t("scannerNotSupported"), "error");
-    return;
-  }
   if (!isSecureCameraContext()) {
     setScannerStatus(t("scannerNeedsHttps"), "error");
     return;
@@ -1641,14 +1684,39 @@ async function startScanner() {
     return;
   }
 
-  setScannerStatus(t("scannerScanning"));
   if (scannerStartBtn) scannerStartBtn.disabled = true;
   if (scannerStopBtn) scannerStopBtn.disabled = false;
   if (scannerResult) scannerResult.classList.add("is-hidden");
 
+  // Decide on a backend before we even ask for the camera so we can show a
+  // single sensible error message if neither is available.
+  const Detector = getBarcodeDetectorClass();
+  let usingFallback = false;
   try {
-    const formats = await getSupportedScanFormats(Detector);
-    barcodeDetector = new Detector({ formats });
+    if (Detector) {
+      const formats = await getSupportedScanFormats(Detector);
+      try {
+        barcodeDetector = new Detector({ formats });
+      } catch {
+        // Some Chromium builds (e.g. Edge on Windows) expose BarcodeDetector
+        // but reject the format list. Try without an explicit formats list,
+        // and if that also fails fall back to jsQR.
+        try { barcodeDetector = new Detector(); }
+        catch { barcodeDetector = null; }
+      }
+    } else {
+      barcodeDetector = null;
+    }
+
+    if (!barcodeDetector) {
+      // Load the QR-only polyfill on demand. If it fails, give up.
+      setScannerStatus(t("scannerLoadingFallback"));
+      await loadJsQrLib();
+      usingFallback = true;
+    }
+
+    setScannerStatus(usingFallback ? t("scannerScanningQrOnly") : t("scannerScanning"));
+
     scannerStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } },
       audio: false,
@@ -1668,6 +1736,8 @@ async function startScanner() {
       setScannerStatus(t("scannerPermissionDenied"), "error");
     } else if (name === "NotFoundError" || name === "OverconstrainedError") {
       setScannerStatus(t("scannerNoCamera"), "error");
+    } else if (err && err.message && err.message.indexOf("jsQR") !== -1) {
+      setScannerStatus(t("scannerNotSupported"), "error");
     } else {
       const msg = err && err.message ? `${t("scannerCameraError")} (${err.message})` : t("scannerCameraError");
       setScannerStatus(msg, "error");
@@ -1693,16 +1763,49 @@ function stopScanner(opts = {}) {
   if (!opts.keepResult && scannerResult) scannerResult.classList.add("is-hidden");
 }
 
+function jsQrScanCurrentFrame() {
+  if (!jsQrFn || !scannerVideo) return null;
+  const w = scannerVideo.videoWidth;
+  const h = scannerVideo.videoHeight;
+  if (!w || !h) return null;
+  if (!jsQrSampleCanvas) jsQrSampleCanvas = document.createElement("canvas");
+  if (jsQrSampleCanvas.width !== w) jsQrSampleCanvas.width = w;
+  if (jsQrSampleCanvas.height !== h) jsQrSampleCanvas.height = h;
+  const ctx = jsQrSampleCanvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(scannerVideo, 0, 0, w, h);
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, w, h);
+  } catch {
+    return null;
+  }
+  const found = jsQrFn(imageData.data, w, h, { inversionAttempts: "dontInvert" });
+  if (found && found.data) {
+    return { rawValue: found.data, format: "qr_code" };
+  }
+  return null;
+}
+
 function scanFrameLoop() {
-  if (!scannerRunning || !scannerVideo || !barcodeDetector) return;
+  if (!scannerRunning || !scannerVideo) return;
+  if (!barcodeDetector && !jsQrFn) return;
   const tick = async () => {
     if (!scannerRunning) return;
     try {
       if (scannerVideo.readyState >= 2 && scannerVideo.videoWidth > 0) {
-        const results = await barcodeDetector.detect(scannerVideo);
-        if (results && results.length > 0) {
-          handleScanResult(results[0]);
-          return;
+        if (barcodeDetector) {
+          const results = await barcodeDetector.detect(scannerVideo);
+          if (results && results.length > 0) {
+            handleScanResult(results[0]);
+            return;
+          }
+        } else {
+          const found = jsQrScanCurrentFrame();
+          if (found) {
+            handleScanResult(found);
+            return;
+          }
         }
       }
     } catch {

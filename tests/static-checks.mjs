@@ -13,6 +13,7 @@ const files = {
   qrGlobal: new URL("../vendor/qrcode.global.js", import.meta.url),
   pdfGlobal: new URL("../vendor/jspdf.umd.min.js", import.meta.url),
   barcodeGlobal: new URL("../vendor/jsbarcode.umd.min.js", import.meta.url),
+  jsqr: new URL("../vendor/jsqr.js", import.meta.url),
 };
 
 function count(haystack, needle) {
@@ -48,6 +49,8 @@ assert.ok(pdfBundleStat.size > 100_000, "vendored jsPDF bundle looks too small")
 assert.ok(qrGlobalStat.size > 10_000, "vendored QR global bundle looks too small");
 assert.ok(pdfGlobalStat.size > 100_000, "vendored jsPDF UMD bundle looks too small");
 assert.ok(barcodeGlobalStat.size > 10_000, "vendored JsBarcode UMD bundle looks too small");
+const jsqrStat = await stat(files.jsqr);
+assert.ok(jsqrStat.size > 100_000, "vendored jsQR bundle looks too small");
 
 const QRModule = await import(files.qrBundle.href);
 const QRCode = QRModule.default || QRModule;
