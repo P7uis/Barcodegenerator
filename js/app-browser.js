@@ -1680,6 +1680,12 @@ async function startScanner() {
     return;
   }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[scanner] navigator.mediaDevices.getUserMedia is unavailable.",
+      "isSecureContext=", window.isSecureContext,
+      "location=", window.location && window.location.href,
+    );
     setScannerStatus(t("scannerNotSupported"), "error");
     return;
   }
@@ -1709,7 +1715,10 @@ async function startScanner() {
     }
 
     if (!barcodeDetector) {
-      // Load the QR-only polyfill on demand. If it fails, give up.
+      // eslint-disable-next-line no-console
+      console.info(
+        "[scanner] Native BarcodeDetector unavailable on this browser/OS — loading jsQR polyfill from ./vendor/jsqr.js",
+      );
       setScannerStatus(t("scannerLoadingFallback"));
       await loadJsQrLib();
       usingFallback = true;
@@ -1737,6 +1746,11 @@ async function startScanner() {
     } else if (name === "NotFoundError" || name === "OverconstrainedError") {
       setScannerStatus(t("scannerNoCamera"), "error");
     } else if (err && err.message && err.message.indexOf("jsQR") !== -1) {
+      // eslint-disable-next-line no-console
+      console.error(
+        "[scanner] jsQR polyfill failed to load. Make sure ./vendor/jsqr.js is reachable.",
+        err,
+      );
       setScannerStatus(t("scannerNotSupported"), "error");
     } else {
       const msg = err && err.message ? `${t("scannerCameraError")} (${err.message})` : t("scannerCameraError");
