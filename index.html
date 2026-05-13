@@ -207,6 +207,25 @@
     <div class="error" id="error" aria-live="polite"></div>
   </main>
 
+  <!--
+    Floating app footer.
+
+    AI / Cursor / human contributors:
+      Bump the version below on every change you ship. Use semver:
+        - patch (1.1.0 -> 1.1.1) for bug fixes,
+        - minor (1.1.0 -> 1.2.0) for new features,
+        - major (1.1.0 -> 2.0.0) for breaking changes.
+      Mirror the same value in /package.json -> "version" so npm tooling
+      stays in sync. Keep BOTH spots updated in the same commit.
+  -->
+  <footer class="app-footer" aria-label="App info">
+    <span id="app-footer-version" class="app-footer-version">v1.1.0</span>
+    <span class="app-footer-sep" aria-hidden="true">&middot;</span>
+    <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
+    <span class="app-footer-sep" aria-hidden="true">&middot;</span>
+    <span class="app-footer-by">by <a class="app-footer-link" href="https://github.com/P7uis" target="_blank" rel="noopener noreferrer">P7uis</a></span>
+  </footer>
+
   <script src="./vendor/qrcode.global.js"></script>
   <script src="./vendor/jsbarcode.umd.min.js"></script>
   <script src="./vendor/jspdf.umd.min.js"></script>
