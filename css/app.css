@@ -372,7 +372,8 @@ label {
 .qr-only.is-hidden,
 .barcode-only.is-hidden,
 .generator-only.is-hidden,
-.scanner-only.is-hidden {
+.scanner-only.is-hidden,
+.scanner-result.is-hidden {
   display: none !important;
 }
 

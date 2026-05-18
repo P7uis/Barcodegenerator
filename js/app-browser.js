@@ -552,11 +552,22 @@ const SCAN_FORMATS = [
   "pdf417",
   "aztec",
 ];
+const SCAN_BELL_DURATION_MS = 1550;
+const SCAN_BELL_STRIKE_GAP_MS = 280;
+const SCAN_BELL_VOLUME = 1.0;
+const SCAN_BELL_PARTIALS = [
+  { frequency: 880, gain: 1, drift: 0.96, decay: 0.9 },
+  { frequency: 1320, gain: 0.74, drift: 0.965, decay: 0.78 },
+  { frequency: 1760, gain: 0.56, drift: 0.97, decay: 0.66 },
+  { frequency: 2440, gain: 0.34, drift: 0.975, decay: 0.48 },
+  { frequency: 3320, gain: 0.2, drift: 0.98, decay: 0.26 },
+];
 
 let scannerRunning = false;
 /** @type {MediaStream|null} */ let scannerStream = null;
 /** @type {any} */ let barcodeDetector = null;
 let scannerRafId = 0;
+/** @type {AudioContext|null} */ let scannerAudioContext = null;
 
 // Lazy-loaded jsQR polyfill (QR-only) used when the browser does not ship a
 // native BarcodeDetector. Loaded on demand from `vendor/jsqr.js`.
@@ -1643,6 +1654,104 @@ function setScannerStatus(message, tone) {
   else scannerStatus.removeAttribute("data-tone");
 }
 
+function getScannerAudioContext() {
+  const AudioCtor = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (typeof AudioCtor !== "function") return null;
+  if (!scannerAudioContext || scannerAudioContext.state === "closed") {
+    try {
+      scannerAudioContext = new AudioCtor();
+    } catch {
+      return null;
+    }
+  }
+  return scannerAudioContext;
+}
+
+function primeScanSuccessBell() {
+  const ctx = getScannerAudioContext();
+  if (!ctx || ctx.state !== "suspended") return;
+  void ctx.resume().catch(() => {
+    /* Audio feedback is best-effort. */
+  });
+}
+
+function playScanSuccessBell() {
+  const ctx = getScannerAudioContext();
+  if (!ctx) return;
+
+  const scheduleBell = () => {
+    try {
+      const now = ctx.currentTime;
+      const end = now + SCAN_BELL_DURATION_MS / 1000;
+      const master = ctx.createGain();
+      const compressor =
+        typeof ctx.createDynamicsCompressor === "function"
+          ? ctx.createDynamicsCompressor()
+          : null;
+      const activeNodes = [master];
+
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(SCAN_BELL_VOLUME, now + 0.006);
+      master.gain.setValueAtTime(SCAN_BELL_VOLUME, end - 0.05);
+      master.gain.exponentialRampToValueAtTime(0.0001, end);
+
+      if (compressor) {
+        compressor.threshold.setValueAtTime(-12, now);
+        compressor.knee.setValueAtTime(18, now);
+        compressor.ratio.setValueAtTime(5, now);
+        compressor.attack.setValueAtTime(0.002, now);
+        compressor.release.setValueAtTime(0.14, now);
+        activeNodes.push(compressor);
+      }
+
+      const scheduleStrike = (strikeAt, scale) => {
+        for (const partial of SCAN_BELL_PARTIALS) {
+          const osc = ctx.createOscillator();
+          const partialGain = ctx.createGain();
+          const partialEnd = strikeAt + partial.decay;
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(partial.frequency, strikeAt);
+          osc.frequency.exponentialRampToValueAtTime(partial.frequency * partial.drift, partialEnd);
+          partialGain.gain.setValueAtTime(0.0001, strikeAt);
+          partialGain.gain.exponentialRampToValueAtTime(partial.gain * scale, strikeAt + 0.005);
+          partialGain.gain.exponentialRampToValueAtTime(0.0001, partialEnd);
+          osc.connect(partialGain);
+          partialGain.connect(master);
+          activeNodes.push(osc, partialGain);
+          osc.start(strikeAt);
+          osc.stop(partialEnd + 0.04);
+        }
+      };
+
+      scheduleStrike(now, 1);
+      scheduleStrike(now + SCAN_BELL_STRIKE_GAP_MS / 1000, 0.96);
+
+      if (compressor) {
+        master.connect(compressor);
+        compressor.connect(ctx.destination);
+      } else {
+        master.connect(ctx.destination);
+      }
+      const cleanup = () => {
+        for (const node of activeNodes) {
+          try { node.disconnect(); } catch { /* ignore */ }
+        }
+      };
+      window.setTimeout(cleanup, SCAN_BELL_DURATION_MS + 80);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  if (ctx.state === "suspended") {
+    void ctx.resume().then(scheduleBell).catch(() => {
+      /* ignore */
+    });
+    return;
+  }
+  scheduleBell();
+}
+
 function getBarcodeDetectorClass() {
   return typeof globalThis.BarcodeDetector === "function"
     ? globalThis.BarcodeDetector
@@ -1689,6 +1798,7 @@ async function startScanner() {
     setScannerStatus(t("scannerNotSupported"), "error");
     return;
   }
+  primeScanSuccessBell();
 
   if (scannerStartBtn) scannerStartBtn.disabled = true;
   if (scannerStopBtn) scannerStopBtn.disabled = false;
@@ -1866,6 +1976,7 @@ function handleScanResult(detected) {
   }
   if (scannerResult) scannerResult.classList.remove("is-hidden");
   setScannerStatus(t("scannerStopped"));
+  if (value) playScanSuccessBell();
 
   if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     try { navigator.vibrate(80); } catch { /* ignore */ }

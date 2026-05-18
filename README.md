@@ -7,6 +7,7 @@ Feel free to make pull requests to improve this education project.
 ## Features
 
 - Generate QR codes from `http`/`https` links or plain text.
+- Scan QR codes and browser-supported 1D barcodes from the camera, with an extra-loud double success bell.
 - Assume `https://` when a link is entered without a scheme.
 - Optionally shorten links first (is.gd, then v.gd as fallback) so the QR can be smaller and easier to scan.
 - Generate common 1D barcodes: Code 128, EAN-13, EAN-8, UPC-A, Code 39, ITF (2-of-5), Codabar.
