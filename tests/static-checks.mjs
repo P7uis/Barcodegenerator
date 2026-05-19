@@ -65,9 +65,9 @@ const jsPDF = PdfModule.jsPDF || PdfModule.default?.jsPDF || PdfModule.default;
 assert.equal(typeof jsPDF, "function", "vendored jsPDF bundle should expose a constructor");
 
 const app = await readFile(files.app, "utf8");
-assert.match(app, /is\.gd\/v\.gd|is\.gd, then v\.gd/, "app copy should disclose third-party link shortening");
+assert.match(app, /CleanURI.*is\.gd\/v\.gd/s, "app copy should disclose third-party link shortening");
 const appBrowser = await readFile(files.appBrowser, "utf8");
 assert.doesNotMatch(appBrowser, /^import\s/m, "file-compatible app must not use module imports");
-assert.match(appBrowser, /is\.gd\/v\.gd|is\.gd, then v\.gd/, "file-compatible app copy should disclose third-party link shortening");
+assert.match(appBrowser, /CleanURI.*is\.gd\/v\.gd/s, "file-compatible app copy should disclose third-party link shortening");
 
 console.log("Static checks passed.");

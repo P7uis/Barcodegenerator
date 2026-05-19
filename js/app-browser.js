@@ -1,4 +1,54 @@
+const FETCH_TIMEOUT_MS = 18000;
 const JSONP_TIMEOUT_MS = 18000;
+
+function readableProviderName(provider) {
+  if (provider === "cleanuri") return "CleanURI";
+  if (provider === "vgd") return "v.gd";
+  return "is.gd";
+}
+
+async function shortenWithCleanUri(longUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const body = new URLSearchParams({ url: longUrl });
+    const response = await fetch("https://cleanuri.com/api/v1/shorten", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+      signal: controller.signal,
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (_) {
+      // The status text below is more useful than a JSON parse error.
+    }
+
+    if (!response.ok) {
+      const msg = data && data.error ? data.error : response.statusText;
+      throw new Error(msg || "Shortening failed.");
+    }
+    if (data && data.result_url) {
+      return String(data.result_url).trim();
+    }
+    if (data && data.error) {
+      throw new Error(String(data.error));
+    }
+    throw new Error("Unexpected response from shortening service.");
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Shortening request timed out.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function loadJsonp(url, callbackName) {
   return new Promise((resolve, reject) => {
@@ -41,6 +91,10 @@ function loadJsonp(url, callbackName) {
 }
 
 function shortenWithProvider(longUrl, provider) {
+  if (provider === "cleanuri") {
+    return shortenWithCleanUri(longUrl);
+  }
+
   const base = provider === "vgd" ? "https://v.gd" : "https://is.gd";
   const cb = `qrLinkShort_cb_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   const url = `${base}/create.php?format=json&url=${encodeURIComponent(longUrl)}&callback=${encodeURIComponent(cb)}`;
@@ -48,17 +102,16 @@ function shortenWithProvider(longUrl, provider) {
 }
 
 async function shortenUrlAuto(longUrl) {
-  try {
-    return await shortenWithProvider(longUrl, "isgd");
-  } catch (e1) {
+  const errors = [];
+  for (const provider of ["cleanuri", "isgd", "vgd"]) {
     try {
-      return await shortenWithProvider(longUrl, "vgd");
-    } catch (e2) {
-      const a = e1 instanceof Error ? e1.message : String(e1);
-      const b = e2 instanceof Error ? e2.message : String(e2);
-      throw new Error(`${a} (${b})`);
+      return await shortenWithProvider(longUrl, provider);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${readableProviderName(provider)}: ${msg}`);
     }
   }
+  throw new Error(errors.join(" | "));
 }
 
 function loadQrModule() {
@@ -680,7 +733,7 @@ const I18N = {
     sizeLabel: "Outer size (cm)",
     calibrateHint:
       "Line up the bar's left edge with 0 on a physical ruler, then drag its right edge to exactly 5\u00a0cm. Saved for next visit.",
-    shortenLabel: "Shorten link first (is.gd, then v.gd)",
+    shortenLabel: "Shorten link first (CleanURI, then is.gd/v.gd)",
     shortenHint: "Shorten your link so a smaller QR code works better.",
     logoLabel: "Center logo on the QR",
     logoHint:
@@ -694,7 +747,7 @@ const I18N = {
     download: "Download PNG",
     downloadPdf: "Download A4 PDF",
     hint:
-      "If a web address has no scheme, https:// is assumed. QR / barcode / PDF libraries are bundled locally; link shortening uses is.gd/v.gd.",
+      "If a web address has no scheme, https:// is assumed. QR / barcode / PDF libraries are bundled locally; link shortening uses CleanURI first, then is.gd/v.gd.",
     encodedPrefix: "Encoded:",
     errEnterAddress: "Enter a web address.",
     errInvalidAddress: "That does not look like a valid http(s) link.",
@@ -764,7 +817,7 @@ const I18N = {
     sizeLabel: "Buitenmaat (cm)",
     calibrateHint:
       "Leg de linkerrand van de balk op 0 van een echte liniaal en sleep de rechterrand naar exact 5\u00a0cm. Wordt bewaard voor je volgende bezoek.",
-    shortenLabel: "Link eerst inkorten (is.gd, daarna v.gd)",
+    shortenLabel: "Link eerst inkorten (CleanURI, daarna is.gd/v.gd)",
     shortenHint: "Laat je Link inkorten zodat een kleinere QR code beter werkt.",
     logoLabel: "Centraal logo op de QR",
     logoHint:
@@ -778,7 +831,7 @@ const I18N = {
     download: "Download PNG",
     downloadPdf: "Download A4-PDF",
     hint:
-      "Als een webadres geen schema heeft, wordt https:// toegevoegd. QR-/barcode-/PDF-bibliotheken zijn lokaal gebundeld; inkorten gebruikt is.gd/v.gd.",
+      "Als een webadres geen schema heeft, wordt https:// toegevoegd. QR-/barcode-/PDF-bibliotheken zijn lokaal gebundeld; inkorten gebruikt eerst CleanURI, daarna is.gd/v.gd.",
     encodedPrefix: "Gecodeerd:",
     errEnterAddress: "Vul een webadres in.",
     errInvalidAddress: "Dit lijkt geen geldige http(s)-url.",
@@ -848,7 +901,7 @@ const I18N = {
     sizeLabel: "Aussenmass (cm)",
     calibrateHint:
       "Richte die linke Kante des Balkens an 0 auf einem echten Lineal aus und ziehe die rechte Kante exakt auf 5\u00a0cm. Wird fuer den naechsten Besuch gespeichert.",
-    shortenLabel: "Link zuerst kuerzen (is.gd, dann v.gd)",
+    shortenLabel: "Link zuerst kuerzen (CleanURI, dann is.gd/v.gd)",
     shortenHint: "Kuerze deinen Link, damit ein kleinerer QR-Code besser funktioniert.",
     logoLabel: "Zentrales Logo auf dem QR",
     logoHint:
@@ -862,7 +915,7 @@ const I18N = {
     download: "PNG herunterladen",
     downloadPdf: "A4-PDF herunterladen",
     hint:
-      "Wenn eine Webadresse kein Schema hat, wird https:// angenommen. QR-, Barcode- und PDF-Bibliotheken sind lokal gebuendelt; Kuerzen nutzt is.gd/v.gd.",
+      "Wenn eine Webadresse kein Schema hat, wird https:// angenommen. QR-, Barcode- und PDF-Bibliotheken sind lokal gebuendelt; Kuerzen nutzt zuerst CleanURI, dann is.gd/v.gd.",
     encodedPrefix: "Kodiert:",
     errEnterAddress: "Bitte eine Webadresse eingeben.",
     errInvalidAddress: "Das sieht nicht wie eine gueltige http(s)-URL aus.",

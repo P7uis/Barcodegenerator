@@ -9,7 +9,7 @@ Feel free to make pull requests to improve this education project.
 - Generate QR codes from `http`/`https` links or plain text.
 - Scan QR codes and browser-supported 1D barcodes from the camera, with an extra-loud double success bell.
 - Assume `https://` when a link is entered without a scheme.
-- Optionally shorten links first (is.gd, then v.gd as fallback) so the QR can be smaller and easier to scan.
+- Optionally shorten links first (CleanURI, then is.gd/v.gd as fallback) so the QR can be smaller and easier to scan.
 - Generate common 1D barcodes: Code 128, EAN-13, EAN-8, UPC-A, Code 39, ITF (2-of-5), Codabar.
 - Choose square, rounded, or dotted module styling for QR.
 - Add a center logo to a QR from a local image or a CORS-enabled image URL.
@@ -60,6 +60,6 @@ The test suite checks that the app has a single maintained entrypoint, the barco
 
 QR, 1D barcode, and PDF generation all run from local vendored JavaScript bundles. The app does not need a network request for normal generation or export, including when opened as a local `file://` page.
 
-If "Shorten link first" is enabled, the entered URL is sent to `is.gd`. If that request fails, it is sent to `v.gd`. The shortening integration uses JSONP, which means a script from the shortening provider is executed in the page. Avoid enabling shortening for private or sensitive links.
+If "Shorten link first" is enabled, the entered URL is sent to `cleanuri.com`. If that request fails, it is sent to `is.gd`, then `v.gd`. CleanURI uses a browser `fetch` request; the is.gd/v.gd fallbacks use JSONP, which means a script from the shortening provider is executed in the page. Avoid enabling shortening for private or sensitive links.
 
 Remote logo URLs are loaded into a canvas. PNG/PDF export can fail if the image host does not allow cross-origin canvas use. A local logo file avoids that issue.

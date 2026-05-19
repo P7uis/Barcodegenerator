@@ -69,7 +69,7 @@ const I18N = {
     shapeRounded: "Rounded",
     shapeDots: "Dots",
     sizeLabel: "QR outer size (cm)",
-    shortenLabel: "Shorten link first (is.gd, then v.gd)",
+    shortenLabel: "Shorten link first (CleanURI, then is.gd/v.gd)",
     shortenHint: "Shorten your link so a smaller QR code works better.",
     logoLabel: "Center logo on the QR",
     logoHint:
@@ -83,7 +83,7 @@ const I18N = {
     download: "Download PNG",
     downloadPdf: "Download A4 PDF",
     hint:
-      "If a web address has no scheme, https:// is assumed. QR/PDF libraries are bundled locally; link shortening uses is.gd/v.gd.",
+      "If a web address has no scheme, https:// is assumed. QR/PDF libraries are bundled locally; link shortening uses CleanURI first, then is.gd/v.gd.",
     encodedPrefix: "QR encodes:",
     errEnterAddress: "Enter a web address.",
     errInvalidAddress: "That does not look like a valid http(s) link.",
@@ -122,7 +122,7 @@ const I18N = {
     shapeRounded: "Afgerond",
     shapeDots: "Punten",
     sizeLabel: "Buitenmaat QR (cm)",
-    shortenLabel: "Link eerst inkorten (is.gd, daarna v.gd)",
+    shortenLabel: "Link eerst inkorten (CleanURI, daarna is.gd/v.gd)",
     shortenHint: "Laat je Link inkorten zodat een kleinere QR code beter werkt.",
     logoLabel: "Centraal logo op de QR",
     logoHint:
@@ -136,7 +136,7 @@ const I18N = {
     download: "Download PNG",
     downloadPdf: "Download A4-PDF",
     hint:
-      "Als een webadres geen schema heeft, wordt https:// toegevoegd. QR/PDF-bibliotheken zijn lokaal gebundeld; inkorten gebruikt is.gd/v.gd.",
+      "Als een webadres geen schema heeft, wordt https:// toegevoegd. QR/PDF-bibliotheken zijn lokaal gebundeld; inkorten gebruikt eerst CleanURI, daarna is.gd/v.gd.",
     encodedPrefix: "QR bevat:",
     errEnterAddress: "Vul een webadres in.",
     errInvalidAddress: "Dit lijkt geen geldige http(s)-url.",
@@ -175,7 +175,7 @@ const I18N = {
     shapeRounded: "Abgerundet",
     shapeDots: "Punkte",
     sizeLabel: "QR-Aussenmass (cm)",
-    shortenLabel: "Link zuerst kuerzen (is.gd, dann v.gd)",
+    shortenLabel: "Link zuerst kuerzen (CleanURI, dann is.gd/v.gd)",
     shortenHint: "Kuerze deinen Link, damit ein kleinerer QR-Code besser funktioniert.",
     logoLabel: "Zentrales Logo auf dem QR",
     logoHint:
@@ -189,7 +189,7 @@ const I18N = {
     download: "PNG herunterladen",
     downloadPdf: "A4-PDF herunterladen",
     hint:
-      "Wenn eine Webadresse kein Schema hat, wird https:// angenommen. QR/PDF-Bibliotheken sind lokal gebuendelt; Kuerzen nutzt is.gd/v.gd.",
+      "Wenn eine Webadresse kein Schema hat, wird https:// angenommen. QR/PDF-Bibliotheken sind lokal gebuendelt; Kuerzen nutzt zuerst CleanURI, dann is.gd/v.gd.",
     encodedPrefix: "QR kodiert:",
     errEnterAddress: "Bitte eine Webadresse eingeben.",
     errInvalidAddress: "Das sieht nicht wie eine gueltige http(s)-URL aus.",

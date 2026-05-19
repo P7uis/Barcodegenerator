@@ -1,9 +1,60 @@
 /**
- * Client-side URL shortening via is.gd / v.gd JSONP API (no CORS issues).
+ * Client-side URL shortening via CleanURI fetch plus is.gd / v.gd JSONP fallback.
+ * @see https://cleanuri.com/docs
  * @see https://is.gd/apishorteningreference.php
  */
 
+const FETCH_TIMEOUT_MS = 18000;
 const JSONP_TIMEOUT_MS = 18000;
+
+function readableProviderName(provider) {
+  if (provider === "cleanuri") return "CleanURI";
+  if (provider === "vgd") return "v.gd";
+  return "is.gd";
+}
+
+async function shortenWithCleanUri(longUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const body = new URLSearchParams({ url: longUrl });
+    const response = await fetch("https://cleanuri.com/api/v1/shorten", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+      signal: controller.signal,
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (_) {
+      // The status text below is more useful than a JSON parse error.
+    }
+
+    if (!response.ok) {
+      const msg = data && data.error ? data.error : response.statusText;
+      throw new Error(msg || "Shortening failed.");
+    }
+    if (data && data.result_url) {
+      return String(data.result_url).trim();
+    }
+    if (data && data.error) {
+      throw new Error(String(data.error));
+    }
+    throw new Error("Unexpected response from shortening service.");
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Shortening request timed out.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function loadJsonp(url, callbackName) {
   return new Promise((resolve, reject) => {
@@ -52,10 +103,14 @@ function makeCallbackName() {
 
 /**
  * @param {string} longUrl
- * @param {'isgd' | 'vgd'} provider
+ * @param {'cleanuri' | 'isgd' | 'vgd'} provider
  * @returns {Promise<string>}
  */
 export function shortenWithProvider(longUrl, provider) {
+  if (provider === "cleanuri") {
+    return shortenWithCleanUri(longUrl);
+  }
+
   const base = provider === "vgd" ? "https://v.gd" : "https://is.gd";
   const cb = makeCallbackName();
   const url = `${base}/create.php?format=json&url=${encodeURIComponent(longUrl)}&callback=${encodeURIComponent(cb)}`;
@@ -63,20 +118,19 @@ export function shortenWithProvider(longUrl, provider) {
 }
 
 /**
- * Try is.gd, then v.gd on failure (rate limits, outages).
+ * Try CleanURI first, then is.gd / v.gd on failure (blocked URLs, rate limits, outages).
  * @param {string} longUrl
  * @returns {Promise<string>}
  */
 export async function shortenUrlAuto(longUrl) {
-  try {
-    return await shortenWithProvider(longUrl, "isgd");
-  } catch (e1) {
+  const errors = [];
+  for (const provider of ["cleanuri", "isgd", "vgd"]) {
     try {
-      return await shortenWithProvider(longUrl, "vgd");
-    } catch (e2) {
-      const a = e1 instanceof Error ? e1.message : String(e1);
-      const b = e2 instanceof Error ? e2.message : String(e2);
-      throw new Error(`${a} (${b})`);
+      return await shortenWithProvider(longUrl, provider);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${readableProviderName(provider)}: ${msg}`);
     }
   }
+  throw new Error(errors.join(" | "));
 }
