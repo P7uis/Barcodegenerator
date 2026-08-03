@@ -6,6 +6,10 @@ const files = {
   appSingle: new URL("../app-single.html", import.meta.url),
   app: new URL("../js/app.js", import.meta.url),
   appBrowser: new URL("../js/app-browser.js", import.meta.url),
+  manifest: new URL("../manifest.webmanifest", import.meta.url),
+  serviceWorker: new URL("../service-worker.js", import.meta.url),
+  icon192: new URL("../icons/icon-192.png", import.meta.url),
+  icon512: new URL("../icons/icon-512.png", import.meta.url),
   qrLoad: new URL("../js/qr-load.js", import.meta.url),
   pdfLoad: new URL("../js/pdf-load.js", import.meta.url),
   qrBundle: new URL("../vendor/qrcode.mjs", import.meta.url),
@@ -26,12 +30,31 @@ assert.match(index, /<script src="\.\/vendor\/qrcode\.global\.js"><\/script>/, "
 assert.match(index, /<script src="\.\/vendor\/jsbarcode\.umd\.min\.js"><\/script>/, "index.html must load the file-compatible JsBarcode bundle");
 assert.match(index, /<script src="\.\/vendor\/jspdf\.umd\.min\.js"><\/script>/, "index.html must load the file-compatible PDF bundle");
 assert.match(index, /<script src="\.\/js\/app-browser\.js"><\/script>/, "index.html must load the file-compatible browser app");
+assert.match(index, /<link rel="manifest" href="\.\/manifest\.webmanifest" \/>/, "index.html must link the PWA manifest");
+assert.match(index, /id="offline-banner"/, "index.html must expose the offline status banner");
 assert.match(index, /id="barcode-type"/, "index.html must expose the barcode type dropdown");
 assert.match(index, /<option[^>]+value="qr"/, "barcode type dropdown must include a QR option");
 assert.doesNotMatch(index, /http-equiv="refresh"/i, "index.html must not redirect away from the maintained app");
 
 const appSingle = await readFile(files.appSingle, "utf8");
 assert.match(appSingle, /url=\.\/index\.html/, "app-single.html should redirect to the maintained entrypoint");
+
+const manifest = JSON.parse(await readFile(files.manifest, "utf8"));
+assert.equal(manifest.display, "standalone", "manifest should install as a standalone PWA");
+assert.equal(manifest.start_url, "./index.html", "manifest should launch the maintained entrypoint");
+assert.ok(manifest.icons.some((icon) => icon.src === "./icons/icon-192.png"), "manifest should include a 192px icon");
+assert.ok(manifest.icons.some((icon) => icon.src === "./icons/icon-512.png"), "manifest should include a 512px icon");
+const icon192Stat = await stat(files.icon192);
+const icon512Stat = await stat(files.icon512);
+assert.ok(icon192Stat.size > 1_000, "192px PWA icon looks too small");
+assert.ok(icon512Stat.size > 1_000, "512px PWA icon looks too small");
+
+const serviceWorker = await readFile(files.serviceWorker, "utf8");
+assert.match(serviceWorker, /barcode-creator-tool-v1\.3\.0/, "service worker cache should match the app version");
+assert.match(serviceWorker, /\.\/js\/app-browser\.js/, "service worker should cache the browser app");
+assert.match(serviceWorker, /\.\/vendor\/qrcode\.global\.js/, "service worker should cache the QR runtime");
+assert.match(serviceWorker, /\.\/vendor\/jsbarcode\.umd\.min\.js/, "service worker should cache the barcode runtime");
+assert.match(serviceWorker, /\.\/vendor\/jspdf\.umd\.min\.js/, "service worker should cache the PDF runtime");
 
 const qrLoad = await readFile(files.qrLoad, "utf8");
 const pdfLoad = await readFile(files.pdfLoad, "utf8");
@@ -66,8 +89,12 @@ assert.equal(typeof jsPDF, "function", "vendored jsPDF bundle should expose a co
 
 const app = await readFile(files.app, "utf8");
 assert.match(app, /CleanURI.*is\.gd\/v\.gd/s, "app copy should disclose third-party link shortening");
+assert.match(app, /serviceWorker/, "app should register the service worker");
+assert.match(app, /shortenHintOffline/, "app should expose offline shortening copy");
 const appBrowser = await readFile(files.appBrowser, "utf8");
 assert.doesNotMatch(appBrowser, /^import\s/m, "file-compatible app must not use module imports");
 assert.match(appBrowser, /CleanURI.*is\.gd\/v\.gd/s, "file-compatible app copy should disclose third-party link shortening");
+assert.match(appBrowser, /serviceWorker/, "file-compatible app should register the service worker");
+assert.match(appBrowser, /shortenHintOffline/, "file-compatible app should expose offline shortening copy");
 
 console.log("Static checks passed.");

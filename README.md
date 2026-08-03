@@ -10,6 +10,8 @@ Feel free to make pull requests to improve this education project.
 - Scan QR codes and browser-supported 1D barcodes from the camera, with an extra-loud double success bell.
 - Assume `https://` when a link is entered without a scheme.
 - Optionally shorten links first (CleanURI, then is.gd/v.gd as fallback) so the QR can be smaller and easier to scan.
+- Install as a desktop PWA and keep generating QR codes, barcodes, PNGs, and PDFs after the app has loaded offline.
+- Show an offline notice and disable URL shortening while the browser is offline.
 - Generate common 1D barcodes: Code 128, EAN-13, EAN-8, UPC-A, Code 39, ITF (2-of-5), Codabar.
 - Choose square, rounded, or dotted module styling for QR.
 - Add a center logo to a QR from a local image or a CORS-enabled image URL.
@@ -29,6 +31,7 @@ Feel free to make pull requests to improve this education project.
 - `js/shorten.js` integrates with link-shortening providers.
 - `js/png-dpi.js` injects a `pHYs` chunk into exported PNGs so they declare the correct physical DPI.
 - `js/qr-load.js` and `js/pdf-load.js` load local vendored ESM bundles for the modular source version.
+- `manifest.webmanifest`, `service-worker.js`, and `icons/` provide desktop PWA installability and offline caching.
 - `vendor/` contains browser-ready QR, JsBarcode, and PDF libraries used at runtime.
 - `app-single.html` is only a compatibility redirect back to `index.html`.
 
@@ -58,8 +61,10 @@ The test suite checks that the app has a single maintained entrypoint, the barco
 
 ## Privacy And Network Notes
 
-QR, 1D barcode, and PDF generation all run from local vendored JavaScript bundles. The app does not need a network request for normal generation or export, including when opened as a local `file://` page.
+QR, 1D barcode, and PDF generation all run from local vendored JavaScript bundles. The app does not need a network request for normal generation or export, including when opened as a local `file://` page. When served over HTTPS or localhost, the app can be installed as a PWA and cached for offline use after the first load.
 
 If "Shorten link first" is enabled, the entered URL is sent to `cleanuri.com`. If that request fails, it is sent to `is.gd`, then `v.gd`. CleanURI uses a browser `fetch` request; the is.gd/v.gd fallbacks use JSONP, which means a script from the shortening provider is executed in the page. Avoid enabling shortening for private or sensitive links.
+
+When the browser is offline, the app shows an offline notice and disables URL shortening because shortening providers require a network request.
 
 Remote logo URLs are loaded into a canvas. PNG/PDF export can fail if the image host does not allow cross-origin canvas use. A local logo file avoids that issue.

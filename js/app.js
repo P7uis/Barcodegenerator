@@ -29,6 +29,7 @@ const btnGen = document.getElementById("generate");
 const btnDl = document.getElementById("download");
 const btnPdf = document.getElementById("download-pdf");
 const errEl = document.getElementById("error");
+const offlineBanner = document.getElementById("offline-banner");
 const preview = document.getElementById("preview");
 const canvas = document.getElementById("qr-canvas");
 const encodedEl = document.getElementById("encoded-text");
@@ -42,6 +43,7 @@ let logoImageFromFile = null;
 
 /** @type {"en" | "nl" | "de"} */
 let currentLanguage = "en";
+let isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
 
 const I18N = {
   en: {
@@ -71,6 +73,9 @@ const I18N = {
     sizeLabel: "QR outer size (cm)",
     shortenLabel: "Shorten link first (CleanURI, then is.gd/v.gd)",
     shortenHint: "Shorten your link so a smaller QR code works better.",
+    shortenHintOffline: "URL shortening is unavailable while offline.",
+    offlineNotice:
+      "You are working offline. QR and barcode generation still works; URL shortening is unavailable.",
     logoLabel: "Center logo on the QR",
     logoHint:
       "Uses high error correction. Remote logos require CORS headers for PNG export. If both URL and file are provided, the URL is used.",
@@ -124,6 +129,9 @@ const I18N = {
     sizeLabel: "Buitenmaat QR (cm)",
     shortenLabel: "Link eerst inkorten (CleanURI, daarna is.gd/v.gd)",
     shortenHint: "Laat je Link inkorten zodat een kleinere QR code beter werkt.",
+    shortenHintOffline: "Links inkorten is niet beschikbaar terwijl je offline werkt.",
+    offlineNotice:
+      "Je werkt offline. QR- en barcodegeneratie blijft werken; links inkorten is niet beschikbaar.",
     logoLabel: "Centraal logo op de QR",
     logoHint:
       "Gebruikt hoge foutcorrectie. Externe logo's vereisen CORS-headers voor PNG-export. Als zowel URL als bestand is ingevuld, wordt de URL gebruikt.",
@@ -177,6 +185,9 @@ const I18N = {
     sizeLabel: "QR-Aussenmass (cm)",
     shortenLabel: "Link zuerst kuerzen (CleanURI, dann is.gd/v.gd)",
     shortenHint: "Kuerze deinen Link, damit ein kleinerer QR-Code besser funktioniert.",
+    shortenHintOffline: "URL-Kuerzung ist offline nicht verfuegbar.",
+    offlineNotice:
+      "Du arbeitest offline. QR- und Barcode-Erstellung funktioniert weiter; URL-Kuerzung ist nicht verfuegbar.",
     logoLabel: "Zentrales Logo auf dem QR",
     logoHint:
       "Verwendet eine hohe Fehlerkorrektur. Externe Logos benoetigen CORS-Header fuer den PNG-Export. Wenn sowohl URL als auch Datei gesetzt sind, wird die URL verwendet.",
@@ -252,6 +263,18 @@ function setBusy(busy) {
   syncModeUi();
   syncLogoInputs(busy);
   btnGen.textContent = busy ? t("working") : t("generate");
+}
+
+function syncOfflineUi() {
+  if (offlineBanner) {
+    offlineBanner.textContent = t("offlineNotice");
+    offlineBanner.classList.toggle("is-hidden", !isOffline);
+  }
+  setText("shorten-hint", isOffline ? t("shortenHintOffline") : t("shortenHint"));
+  const shortenRow = chkShorten ? chkShorten.closest(".option-row") : null;
+  if (shortenRow) {
+    shortenRow.classList.toggle("is-unavailable", isOffline);
+  }
 }
 
 function parseQrSizeCm() {
@@ -363,8 +386,9 @@ function syncModeUi() {
   }
   input.type = isUrlMode ? "url" : "text";
   input.placeholder = isUrlMode ? t("payloadPlaceholderUrl") : t("payloadPlaceholderText");
-  chkShorten.disabled = btnGen.disabled || !isUrlMode;
-  if (!isUrlMode) chkShorten.checked = false;
+  chkShorten.disabled = btnGen.disabled || !isUrlMode || isOffline;
+  if (!isUrlMode || isOffline) chkShorten.checked = false;
+  syncOfflineUi();
 }
 
 function applyTranslations() {
@@ -388,7 +412,7 @@ function applyTranslations() {
   setText("shape-opt-dots", t("shapeDots"));
   setText("size-label", t("sizeLabel"));
   setText("opt-shorten-label", t("shortenLabel"));
-  setText("shorten-hint", t("shortenHint"));
+  setText("shorten-hint", isOffline ? t("shortenHintOffline") : t("shortenHint"));
   setText("opt-logo-label", t("logoLabel"));
   setText("logo-hint", t("logoHint"));
   setText("logo-url-label", t("logoUrlLabel"));
@@ -400,6 +424,11 @@ function applyTranslations() {
   logoUrlInput.placeholder = t("logoUrlPlaceholder");
   paintLanguageButtons();
   paintThemeButtons();
+  syncModeUi();
+}
+
+function updateOnlineState() {
+  isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
   syncModeUi();
 }
 
@@ -466,6 +495,15 @@ function initTheme() {
 function initLanguage() {
   currentLanguage = detectInitialLanguage();
   applyTranslations();
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {
+      // Installability is a progressive enhancement; the app still runs.
+    });
+  });
 }
 
 chkLogo.addEventListener("change", () => {
@@ -727,6 +765,9 @@ if (typeof ResizeObserver === "function") {
   new ResizeObserver(schedulePreviewResize).observe(preview);
 }
 
+window.addEventListener("online", updateOnlineState);
+window.addEventListener("offline", updateOnlineState);
+registerServiceWorker();
 initTheme();
 initLanguage();
 syncLogoInputs(false);

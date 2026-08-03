@@ -566,6 +566,7 @@ const btnGen = document.getElementById("generate");
 const btnDl = document.getElementById("download");
 const btnPdf = document.getElementById("download-pdf");
 const errEl = document.getElementById("error");
+const offlineBanner = document.getElementById("offline-banner");
 const preview = document.getElementById("preview");
 const canvas = document.getElementById("qr-canvas");
 const encodedEl = document.getElementById("encoded-text");
@@ -671,6 +672,7 @@ let lastQrSizeCm = 4;
  *  1D barcodes are wider than they are tall. Used for PDF placement. */
 let lastCanvasAspect = 1;
 let currentBarcodeType = "qr";
+let isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
 
 /**
  * Number of CSS px that represent one physical centimetre on the user's
@@ -735,6 +737,9 @@ const I18N = {
       "Line up the bar's left edge with 0 on a physical ruler, then drag its right edge to exactly 5\u00a0cm. Saved for next visit.",
     shortenLabel: "Shorten link first (CleanURI, then is.gd/v.gd)",
     shortenHint: "Shorten your link so a smaller QR code works better.",
+    shortenHintOffline: "URL shortening is unavailable while offline.",
+    offlineNotice:
+      "You are working offline. QR and barcode generation still works; URL shortening is unavailable.",
     logoLabel: "Center logo on the QR",
     logoHint:
       "Uses high error correction. QR dots under visible logo pixels are removed. Remote logos require CORS headers for PNG export.",
@@ -819,6 +824,9 @@ const I18N = {
       "Leg de linkerrand van de balk op 0 van een echte liniaal en sleep de rechterrand naar exact 5\u00a0cm. Wordt bewaard voor je volgende bezoek.",
     shortenLabel: "Link eerst inkorten (CleanURI, daarna is.gd/v.gd)",
     shortenHint: "Laat je Link inkorten zodat een kleinere QR code beter werkt.",
+    shortenHintOffline: "Links inkorten is niet beschikbaar terwijl je offline werkt.",
+    offlineNotice:
+      "Je werkt offline. QR- en barcodegeneratie blijft werken; links inkorten is niet beschikbaar.",
     logoLabel: "Centraal logo op de QR",
     logoHint:
       "Gebruikt hoge foutcorrectie. QR-punten onder zichtbare logopixels worden verwijderd. Externe logo's vereisen CORS-headers voor PNG-export.",
@@ -903,6 +911,9 @@ const I18N = {
       "Richte die linke Kante des Balkens an 0 auf einem echten Lineal aus und ziehe die rechte Kante exakt auf 5\u00a0cm. Wird fuer den naechsten Besuch gespeichert.",
     shortenLabel: "Link zuerst kuerzen (CleanURI, dann is.gd/v.gd)",
     shortenHint: "Kuerze deinen Link, damit ein kleinerer QR-Code besser funktioniert.",
+    shortenHintOffline: "URL-Kuerzung ist offline nicht verfuegbar.",
+    offlineNotice:
+      "Du arbeitest offline. QR- und Barcode-Erstellung funktioniert weiter; URL-Kuerzung ist nicht verfuegbar.",
     logoLabel: "Zentrales Logo auf dem QR",
     logoHint:
       "Verwendet eine hohe Fehlerkorrektur. QR-Punkte unter sichtbaren Logo-Pixeln werden entfernt. Externe Logos benoetigen CORS-Header fuer den PNG-Export.",
@@ -1007,6 +1018,28 @@ function setBusy(busy) {
   syncBarcodeTypeUi();
   syncLogoInputs(busy);
   btnGen.textContent = busy ? t("working") : t("generate");
+}
+
+function syncOfflineUi() {
+  if (offlineBanner) {
+    offlineBanner.textContent = t("offlineNotice");
+    offlineBanner.classList.toggle("is-hidden", !isOffline);
+  }
+  setText("shorten-hint", isOffline ? t("shortenHintOffline") : t("shortenHint"));
+  const shortenRow = chkShorten ? chkShorten.closest(".option-row") : null;
+  if (shortenRow) {
+    shortenRow.classList.toggle("is-unavailable", isOffline);
+  }
+}
+
+function syncShortenAvailability() {
+  const selected = barcodeTypeSelect.value;
+  const def = BARCODE_TYPES[selected] || BARCODE_TYPES.qr;
+  const isQr = selected !== "scanner" && def.kind === "qr";
+  const isUrlMode = modeSelect.value === "url";
+  chkShorten.disabled = btnGen.disabled || !isQr || !isUrlMode || isOffline;
+  if (!isQr || !isUrlMode || isOffline) chkShorten.checked = false;
+  syncOfflineUi();
 }
 
 function parseQrSizeCm() {
@@ -1308,15 +1341,12 @@ function syncBarcodeTypeUi() {
     }
     input.type = isUrlMode ? "url" : "text";
     input.placeholder = isUrlMode ? t("payloadPlaceholderUrl") : t("payloadPlaceholderText");
-    chkShorten.disabled = btnGen.disabled || !isUrlMode;
-    if (!isUrlMode) chkShorten.checked = false;
   } else {
     if (payloadLabel) payloadLabel.textContent = t("payloadLabelBarcode");
     input.type = "text";
     input.placeholder = def.placeholder || "";
-    chkShorten.disabled = true;
-    chkShorten.checked = false;
   }
+  syncShortenAvailability();
 }
 
 function applyTranslations() {
@@ -1342,7 +1372,7 @@ function applyTranslations() {
   setText("size-label", t("sizeLabel"));
   setText("calibrate-hint", t("calibrateHint"));
   setText("opt-shorten-label", t("shortenLabel"));
-  setText("shorten-hint", t("shortenHint"));
+  setText("shorten-hint", isOffline ? t("shortenHintOffline") : t("shortenHint"));
   setText("opt-logo-label", t("logoLabel"));
   setText("logo-hint", t("logoHint"));
   setText("logo-url-label", t("logoUrlLabel"));
@@ -1365,6 +1395,11 @@ function applyTranslations() {
   paintLanguageButtons();
   paintThemeButtons();
   syncBarcodeTypeUi();
+}
+
+function updateOnlineState() {
+  isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+  syncShortenAvailability();
 }
 
 function paintLanguageButtons() {
@@ -1430,6 +1465,15 @@ function initTheme() {
 function initLanguage() {
   currentLanguage = detectInitialLanguage();
   applyTranslations();
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {
+      // Installability is a progressive enhancement; the app still runs.
+    });
+  });
 }
 
 chkLogo.addEventListener("change", () => {
@@ -2127,6 +2171,9 @@ if (typeof ResizeObserver === "function") {
   new ResizeObserver(schedulePreviewResize).observe(preview);
 }
 
+window.addEventListener("online", updateOnlineState);
+window.addEventListener("offline", updateOnlineState);
+registerServiceWorker();
 initTheme();
 initLanguage();
 syncCalibrationUi();

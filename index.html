@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#2f83dd" />
+  <meta name="application-name" content="Barcode Creator Tool" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Barcode Creator Tool" />
   <title>Barcode Creator Tool</title>
   <script>
     (function () {
@@ -22,6 +26,9 @@
       }
     })();
   </script>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="stylesheet" href="./css/app.css" />
 </head>
 <body>
@@ -51,6 +58,10 @@
   </div>
 
   <main class="app-shell">
+    <div id="offline-banner" class="offline-banner is-hidden" role="status" aria-live="polite">
+      You are working offline. QR and barcode generation still works; URL shortening is unavailable.
+    </div>
+
     <header class="topbar">
       <div class="barcode-type-field" role="group" aria-labelledby="barcode-type-label">
         <label id="barcode-type-label" for="barcode-type">Barcode type</label>
@@ -234,7 +245,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v1.2.5</span>
+    <span id="app-footer-version" class="app-footer-version">v1.3.0</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
