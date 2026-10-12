@@ -50,7 +50,7 @@ assert.ok(icon192Stat.size > 1_000, "192px PWA icon looks too small");
 assert.ok(icon512Stat.size > 1_000, "512px PWA icon looks too small");
 
 const serviceWorker = await readFile(files.serviceWorker, "utf8");
-assert.match(serviceWorker, /barcode-creator-tool-v1\.3\.0/, "service worker cache should match the app version");
+assert.match(serviceWorker, /barcode-creator-tool-v1\.4\.1/, "service worker cache should match the app version");
 assert.match(serviceWorker, /\.\/js\/app-browser\.js/, "service worker should cache the browser app");
 assert.match(serviceWorker, /\.\/vendor\/qrcode\.global\.js/, "service worker should cache the QR runtime");
 assert.match(serviceWorker, /\.\/vendor\/jsbarcode\.umd\.min\.js/, "service worker should cache the barcode runtime");

@@ -1,4 +1,4 @@
-const CACHE_NAME = "barcode-creator-tool-v1.3.0";
+const CACHE_NAME = "barcode-creator-tool-v1.4.1";
 
 const APP_ASSETS = [
   "./",

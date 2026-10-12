@@ -581,6 +581,8 @@ const scannerVideo = /** @type {HTMLVideoElement|null} */ (document.getElementBy
 const scannerStatus = document.getElementById("scanner-status");
 const scannerStartBtn = document.getElementById("scanner-start");
 const scannerStopBtn = document.getElementById("scanner-stop");
+const scannerImageBtn = document.getElementById("scanner-image");
+const scannerImageFile = document.getElementById("scanner-image-file");
 const scannerCopyBtn = document.getElementById("scanner-copy");
 const scannerAgainBtn = document.getElementById("scanner-again");
 const scannerOpenLink = /** @type {HTMLAnchorElement|null} */ (document.getElementById("scanner-open"));
@@ -745,7 +747,7 @@ const I18N = {
       "Uses high error correction. QR dots under visible logo pixels are removed. Remote logos require CORS headers for PNG export.",
     logoUrlLabel: "Logo image URL (https, optional)",
     logoUrlPlaceholder: "https://example.com/logo.png",
-    logoFileLabel: "Or local file",
+    logoFileLabel: "Logo from file",
     logoSizeLabel: "Center logo max side (cm)",
     generate: "Generate",
     working: "Working...",
@@ -776,6 +778,10 @@ const I18N = {
     scannerStartHelp: "Click Start to scan with your camera.",
     scannerStart: "Start scan",
     scannerStop: "Stop",
+    scannerImage: "Choose image",
+    scannerImageLoading: "Reading image...",
+    scannerImageMissing: "No code found. Try a clearer image. This browser may only support QR codes.",
+    scannerImageError: "Could not read this image.",
     scannerScanning: "Scanning... point at a code.",
     scannerScanningQrOnly: "Scanning for QR codes... (1D barcodes need a browser with native barcode detection).",
     scannerLoadingFallback: "Loading QR fallback...",
@@ -832,7 +838,7 @@ const I18N = {
       "Gebruikt hoge foutcorrectie. QR-punten onder zichtbare logopixels worden verwijderd. Externe logo's vereisen CORS-headers voor PNG-export.",
     logoUrlLabel: "URL van logo-afbeelding (https, optioneel)",
     logoUrlPlaceholder: "https://voorbeeld.nl/logo.png",
-    logoFileLabel: "Of lokaal bestand",
+    logoFileLabel: "Logo uit bestand",
     logoSizeLabel: "Maximale logozijde (cm)",
     generate: "Genereer",
     working: "Bezig...",
@@ -863,6 +869,10 @@ const I18N = {
     scannerStartHelp: "Klik op Start om met je camera te scannen.",
     scannerStart: "Start scan",
     scannerStop: "Stop",
+    scannerImage: "Afbeelding kiezen",
+    scannerImageLoading: "Afbeelding lezen...",
+    scannerImageMissing: "Geen code gevonden. Probeer een scherpere afbeelding. Deze browser ondersteunt mogelijk alleen QR-codes.",
+    scannerImageError: "Kon deze afbeelding niet lezen.",
     scannerScanning: "Bezig met scannen... richt op een code.",
     scannerScanningQrOnly: "Bezig met scannen voor QR-codes... (1D-barcodes vereisen een browser met ingebouwde barcode-detectie).",
     scannerLoadingFallback: "QR-fallback wordt geladen...",
@@ -919,7 +929,7 @@ const I18N = {
       "Verwendet eine hohe Fehlerkorrektur. QR-Punkte unter sichtbaren Logo-Pixeln werden entfernt. Externe Logos benoetigen CORS-Header fuer den PNG-Export.",
     logoUrlLabel: "URL des Logo-Bildes (https, optional)",
     logoUrlPlaceholder: "https://beispiel.de/logo.png",
-    logoFileLabel: "Oder lokale Datei",
+    logoFileLabel: "Logo aus Datei",
     logoSizeLabel: "Maximale Logo-Seite (cm)",
     generate: "Erstellen",
     working: "Wird erstellt...",
@@ -950,6 +960,10 @@ const I18N = {
     scannerStartHelp: "Klicke auf Start, um mit deiner Kamera zu scannen.",
     scannerStart: "Scan starten",
     scannerStop: "Stopp",
+    scannerImage: "Bild auswaehlen",
+    scannerImageLoading: "Bild wird gelesen...",
+    scannerImageMissing: "Kein Code gefunden. Dieser Browser unterstuetzt moeglicherweise nur QR-Codes.",
+    scannerImageError: "Dieses Bild konnte nicht gelesen werden.",
     scannerScanning: "Wird gescannt... auf einen Code richten.",
     scannerScanningQrOnly: "Suche nach QR-Codes... (1D-Barcodes benoetigen einen Browser mit nativer Barcode-Erkennung).",
     scannerLoadingFallback: "QR-Fallback wird geladen...",
@@ -1388,6 +1402,7 @@ function applyTranslations() {
   setText("scanner-title", t("scannerTitle"));
   setText("scanner-start", t("scannerStart"));
   setText("scanner-stop", t("scannerStop"));
+  setText("scanner-image", t("scannerImage"));
   setText("scanner-copy", t("scannerCopy"));
   setText("scanner-again", t("scannerScanAgain"));
   if (scannerOpenLink) scannerOpenLink.textContent = t("scannerOpenLink");
@@ -2104,6 +2119,54 @@ async function onScannerCopy() {
   }
 }
 
+async function scanImageFile(file) {
+  if (!file) return;
+  stopScanner();
+  primeScanSuccessBell();
+  scannerImageBtn.disabled = true;
+  if (scannerStartBtn) scannerStartBtn.disabled = true;
+  setScannerStatus(t("scannerImageLoading"));
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = imageUrl;
+    await image.decode();
+    let detected = null;
+    const Detector = getBarcodeDetectorClass();
+    if (Detector) {
+      try {
+        const detector = new Detector({ formats: await getSupportedScanFormats(Detector) });
+        detected = (await detector.detect(image))[0] || null;
+      } catch { /* Try the local QR decoder. */ }
+    }
+    if (!detected) {
+      await loadJsQrLib();
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(1, 4096 / Math.max(image.naturalWidth, image.naturalHeight));
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const found = jsQrFn(pixels.data, canvas.width, canvas.height, { inversionAttempts: "attemptBoth" });
+      if (found && found.data) detected = { rawValue: found.data, format: "qr_code" };
+    }
+    if (detected) handleScanResult(detected);
+    else setScannerStatus(t("scannerImageMissing"), "error");
+  } catch {
+    setScannerStatus(t("scannerImageError"), "error");
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+    scannerImageBtn.disabled = false;
+    if (scannerStartBtn) scannerStartBtn.disabled = false;
+    scannerImageFile.value = "";
+  }
+}
+
+if (scannerImageBtn && scannerImageFile) {
+  scannerImageBtn.addEventListener("click", () => scannerImageFile.click());
+  scannerImageFile.addEventListener("change", () => { void scanImageFile(scannerImageFile.files[0]); });
+}
 if (scannerStartBtn) scannerStartBtn.addEventListener("click", () => { void startScanner(); });
 if (scannerStopBtn) scannerStopBtn.addEventListener("click", () => { stopScanner(); });
 if (scannerAgainBtn) scannerAgainBtn.addEventListener("click", () => { void startScanner(); });
