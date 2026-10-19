@@ -529,7 +529,8 @@ label {
 }
 
 .advanced { margin-top: 12px; border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; }
-.advanced summary, .history-panel summary { cursor: pointer; color: var(--text); font-weight: 650; }
+.history-panel summary { cursor: pointer; color: var(--text); font-weight: 650; }
+.appearance-heading { margin: 0; color: var(--text); font-size: 1rem; font-weight: 650; }
 .advanced-grid { margin-top: 10px; }
 .preview-column > .advanced { flex: 0 0 auto; max-height: 45dvh; overflow-y: auto; }
 .structured-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: 9px; }

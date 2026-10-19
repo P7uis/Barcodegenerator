@@ -237,8 +237,8 @@
         <div class="preview generator-only hidden" id="preview">
           <canvas id="qr-canvas" width="256" height="256" aria-label="QR code preview"></canvas>
         </div>
-        <details class="advanced qr-only generator-only">
-            <summary>QR quality and appearance</summary>
+        <section class="advanced qr-only generator-only" aria-labelledby="qr-appearance-heading">
+            <h2 id="qr-appearance-heading" class="appearance-heading">QR quality and appearance</h2>
             <div class="field-grid advanced-grid">
               <div class="field">
                 <label for="error-correction">Error correction</label>
@@ -251,7 +251,7 @@
               <div class="field"><label for="foreground-color">Foreground</label><input id="foreground-color" type="color" value="#000000"></div>
               <div class="field"><label for="background-color">Background</label><input id="background-color" type="color" value="#ffffff"></div>
             </div>
-        </details>
+        </section>
         <div id="scanner-stage" class="scanner-stage scanner-only is-hidden" aria-label="Live camera feed">
           <video id="scanner-video" playsinline muted autoplay></video>
           <div class="scanner-overlay" aria-hidden="true"></div>
@@ -290,7 +290,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.2.4</span>
+    <span id="app-footer-version" class="app-footer-version">v2.2.5</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
