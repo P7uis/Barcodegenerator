@@ -1696,6 +1696,100 @@ function renderStructuredFields() {
   }).join("") : "";
   structuredFields.querySelectorAll("input, select").forEach((el) => el.addEventListener("input", () => { syncWifiPassword(); scheduleLivePreview(); }));
   syncWifiPassword();
+  if (modeSelect.value === "location") initLocationMap();
+}
+
+// Web Mercator coordinates match OpenStreetMap's standard 256px tiles.
+function mapProject(latitude, longitude, zoom) {
+  const scale = 256 * Math.pow(2, zoom);
+  const lat = Math.max(-85.05112878, Math.min(85.05112878, latitude)) * Math.PI / 180;
+  return { x: (longitude + 180) / 360 * scale, y: (1 - Math.asinh(Math.tan(lat)) / Math.PI) / 2 * scale };
+}
+function mapUnproject(x, y, zoom) {
+  const scale = 256 * Math.pow(2, zoom);
+  return { latitude: Math.atan(Math.sinh(Math.PI * (1 - 2 * y / scale))) * 180 / Math.PI, longitude: ((x / scale * 360) % 360 + 360) % 360 - 180 };
+}
+
+function initLocationMap() {
+  const wrapper = document.createElement("div");
+  wrapper.className = "location-map-picker";
+  wrapper.innerHTML = '<p>Click or tap to place a pin. Drag to move the map.</p><div class="location-map" tabindex="0" role="application" aria-label="Location picker. Arrow keys move the map, Enter places a pin at the centre."><div class="map-tiles"></div><span class="map-pin" hidden aria-label="Selected location">📍</span><div class="map-buttons"><button type="button" data-map-zoom="1" aria-label="Zoom in">+</button><button type="button" data-map-zoom="-1" aria-label="Zoom out">−</button></div><a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></div><div class="actions"><button type="button" class="btn-secondary map-locate">Use my location</button></div><small class="map-message" role="status">Map needs an internet connection. You can also enter coordinates above.</small>';
+  structuredFields.appendChild(wrapper);
+  const map = wrapper.querySelector(".location-map");
+  const tiles = wrapper.querySelector(".map-tiles");
+  const pin = wrapper.querySelector(".map-pin");
+  const message = wrapper.querySelector(".map-message");
+  const latInput = structuredFields.querySelector('[data-structured="latitude"]');
+  const lngInput = structuredFields.querySelector('[data-structured="longitude"]');
+  latInput.min = "-90"; latInput.max = "90"; lngInput.min = "-180"; lngInput.max = "180";
+  let zoom = 2;
+  let centre = { latitude: 20, longitude: 0 };
+  let selected = null;
+  let dragging = null;
+  function draw() {
+    const width = map.clientWidth, height = map.clientHeight;
+    if (!width || !height) return;
+    const p = mapProject(centre.latitude, centre.longitude, zoom);
+    const left = p.x - width / 2, top = p.y - height / 2;
+    const count = Math.pow(2, zoom);
+    tiles.replaceChildren();
+    for (let y = Math.floor(top / 256); y <= Math.floor((top + height) / 256); y++) {
+      if (y < 0 || y >= count) continue;
+      for (let x = Math.floor(left / 256); x <= Math.floor((left + width) / 256); x++) {
+        const img = document.createElement("img");
+        img.alt = ""; img.draggable = false; img.referrerPolicy = "strict-origin-when-cross-origin";
+        img.src = `https://tile.openstreetmap.org/${zoom}/${((x % count) + count) % count}/${y}.png`;
+        img.style.left = `${x * 256 - left}px`; img.style.top = `${y * 256 - top}px`;
+        img.onerror = () => { message.textContent = "Map unavailable. Enter coordinates above or try again when online."; };
+        tiles.appendChild(img);
+      }
+    }
+    pin.hidden = !selected;
+    if (selected) {
+      const point = mapProject(selected.latitude, selected.longitude, zoom);
+      let dx = point.x - p.x; const world = 256 * count;
+      if (dx > world / 2) dx -= world; if (dx < -world / 2) dx += world;
+      pin.style.left = `${width / 2 + dx}px`; pin.style.top = `${point.y - top}px`;
+    }
+  }
+  function choose(point) {
+    selected = point; latInput.value = point.latitude.toFixed(6); lngInput.value = point.longitude.toFixed(6);
+    message.textContent = `Pin placed at ${latInput.value}, ${lngInput.value}.`; draw(); scheduleLivePreview();
+  }
+  map.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button, a")) return;
+    dragging = { x: e.clientX, y: e.clientY, centre: mapProject(centre.latitude, centre.longitude, zoom) };
+    map.setPointerCapture(e.pointerId);
+  });
+  map.addEventListener("pointerup", (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
+    if (Math.hypot(dx, dy) > 5) centre = mapUnproject(dragging.centre.x - dx, Math.max(0, Math.min(256 * Math.pow(2, zoom), dragging.centre.y - dy)), zoom);
+    else { const rect = map.getBoundingClientRect(); choose(mapUnproject(dragging.centre.x + e.clientX - rect.left - rect.width / 2, dragging.centre.y + e.clientY - rect.top - rect.height / 2, zoom)); }
+    dragging = null; draw();
+  });
+  map.addEventListener("pointercancel", () => { dragging = null; });
+  wrapper.querySelectorAll("[data-map-zoom]").forEach((button) => button.addEventListener("click", () => { zoom = Math.max(1, Math.min(19, zoom + Number(button.dataset.mapZoom))); draw(); }));
+  map.addEventListener("keydown", (e) => {
+    if (e.target !== map) return;
+    const moves = { ArrowLeft: [-100, 0], ArrowRight: [100, 0], ArrowUp: [0, -100], ArrowDown: [0, 100] };
+    if (e.key === "Enter") { e.preventDefault(); choose(centre); }
+    if (moves[e.key]) { e.preventDefault(); const p = mapProject(centre.latitude, centre.longitude, zoom); centre = mapUnproject(p.x + moves[e.key][0], Math.max(0, Math.min(256 * Math.pow(2, zoom), p.y + moves[e.key][1])), zoom); draw(); }
+  });
+  function fromInputs() {
+    const latitude = Number(latInput.value), longitude = Number(lngInput.value);
+    if (!latInput.value || !lngInput.value || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return;
+    selected = { latitude, longitude }; centre = selected; draw();
+  }
+  latInput.addEventListener("input", fromInputs); lngInput.addEventListener("input", fromInputs);
+  const locate = wrapper.querySelector(".map-locate");
+  locate.disabled = !navigator.geolocation;
+  locate.addEventListener("click", () => {
+    message.textContent = "Finding your location…";
+    navigator.geolocation.getCurrentPosition((position) => { centre = { latitude: position.coords.latitude, longitude: position.coords.longitude }; zoom = 16; choose(centre); }, () => { message.textContent = "Could not get your location. Place a pin or enter coordinates instead."; }, { timeout: 15000 });
+  });
+  const observer = new ResizeObserver(() => { if (!map.isConnected) observer.disconnect(); else draw(); });
+  observer.observe(map); requestAnimationFrame(draw);
 }
 
 function syncWifiPassword() {

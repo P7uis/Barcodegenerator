@@ -533,6 +533,15 @@ label {
 .advanced-grid { margin-top: 10px; }
 .structured-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: 9px; }
 .structured-fields .field { margin: 0; }
+.location-map-picker { grid-column: 1 / -1; min-width: 0; }
+.location-map-picker p { font-size: .85rem; margin: 0 0 8px; }
+.location-map { position: relative; height: 280px; overflow: hidden; border: 1px solid var(--border); border-radius: 9px; background: #dce4e7; cursor: crosshair; touch-action: none; }
+.map-tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; pointer-events: none; }
+.map-pin { position: absolute; transform: translate(-50%, -100%); font-size: 32px; line-height: 1; pointer-events: none; }
+.map-buttons { position: absolute; top: 8px; left: 8px; display: grid; gap: 4px; }
+.map-buttons button { background: var(--surface); color: var(--text); min-width: 44px; min-height: 44px; }
+.map-attribution { position: absolute; right: 0; bottom: 0; background: white; color: #154c76; padding: 3px 5px; font-size: 11px; }
+.map-message { display: block; margin-top: 6px; }
 .structured-fields small { color: var(--muted); line-height: 1.4; }
 .structured-fields .wifi-hidden-label { text-transform: none; letter-spacing: 0; color: var(--text); display: flex; align-items: center; gap: 8px; min-height: 44px; }
 input[type="color"] { min-height: 42px; padding: 4px; }
