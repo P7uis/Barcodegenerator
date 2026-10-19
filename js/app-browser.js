@@ -601,7 +601,6 @@ const btnSaveRecent = document.getElementById("save-recent");
 const btnReset = document.getElementById("reset-app");
 const structuredFields = document.getElementById("structured-fields");
 const errorCorrectionSelect = document.getElementById("error-correction");
-const quietZoneInput = document.getElementById("quiet-zone");
 const foregroundInput = document.getElementById("foreground-color");
 const backgroundInput = document.getElementById("background-color");
 const qualityInfo = document.getElementById("quality-info");
@@ -2041,7 +2040,7 @@ function rememberGeneration(payload, type = currentBarcodeType) {
 }
 
 function persistSettings() {
-  storageWrite(SETTINGS_KEY, { barcodeType: barcodeTypeSelect.value, mode: modeSelect.value, shape: shapeSelect.value, cornerShape: cornerShapeSelect.value, centreShape: centreShapeSelect.value, size: sizeInput.value, ecc: errorCorrectionSelect.value, quiet: quietZoneInput.value, foreground: foregroundInput.value, background: backgroundInput.value });
+  storageWrite(SETTINGS_KEY, { barcodeType: barcodeTypeSelect.value, mode: modeSelect.value, shape: shapeSelect.value, cornerShape: cornerShapeSelect.value, centreShape: centreShapeSelect.value, size: sizeInput.value, ecc: errorCorrectionSelect.value, foreground: foregroundInput.value, background: backgroundInput.value });
 }
 
 function restoreSettings() {
@@ -2053,7 +2052,6 @@ function restoreSettings() {
   if (s.centreShape) centreShapeSelect.value = s.centreShape;
   if (s.size) sizeInput.value = s.size;
   if (s.ecc) errorCorrectionSelect.value = s.ecc;
-  if (s.quiet) quietZoneInput.value = s.quiet;
   if (s.foreground) foregroundInput.value = s.foreground;
   if (s.background) backgroundInput.value = s.background;
 }
@@ -2124,7 +2122,7 @@ async function onGenerate(options = {}) {
       const moduleShape = selectedShape || "square";
       const QRCode = await loadQrModule();
       const ecc = selectedEcc(Boolean(logoForQr));
-      const margin = Math.max(0, Math.min(12, Number.parseInt(quietZoneInput.value, 10) || 0));
+      const margin = 4;
       const foreground = foregroundInput.value;
       const background = backgroundInput.value;
       const qrData = QRCode.create(payload, { errorCorrectionLevel: ecc });
@@ -2282,7 +2280,7 @@ function resetApp() {
   // Rebuild the current category to clear its fields and map pin without
   // changing the user's selected barcode type or content category.
   delete structuredFields.dataset.mode;
-  sizeInput.value = "4"; sizeSlider.value = "4"; errorCorrectionSelect.value = "auto"; quietZoneInput.value = "4";
+  sizeInput.value = "4"; sizeSlider.value = "4"; errorCorrectionSelect.value = "auto";
   foregroundInput.value = "#000000"; backgroundInput.value = "#ffffff"; chkLogo.checked = false; chkShorten.checked = false;
   lastEncodedPayload = null; lastSvgText = ""; preview.classList.add("hidden"); setError("");
   renderStructuredFields(); syncQrSizeUi(); syncLogoInputs(false); syncBarcodeTypeUi(); renderHistory(); renderScanHistory(); persistSettings(); announce("Settings reset.");
@@ -2844,7 +2842,7 @@ input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void onGenerate();
 });
 
-[input, sizeInput, sizeSlider, shapeSelect, errorCorrectionSelect, quietZoneInput, foregroundInput, backgroundInput, logoSizeInput, logoUrlInput].filter(Boolean).forEach((el) => el.addEventListener("input", scheduleLivePreview));
+[input, sizeInput, sizeSlider, shapeSelect, errorCorrectionSelect, foregroundInput, backgroundInput, logoSizeInput, logoUrlInput].filter(Boolean).forEach((el) => el.addEventListener("input", scheduleLivePreview));
 cornerShapeSelect.addEventListener("input", scheduleLivePreview);
 centreShapeSelect.addEventListener("input", scheduleLivePreview);
 [chkLogo, chkShorten].filter(Boolean).forEach((el) => el.addEventListener("change", scheduleLivePreview));

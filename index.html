@@ -234,6 +234,13 @@
               <div class="field"><label for="foreground-color">QR dot colour</label><input id="foreground-color" type="color" value="#000000"></div>
               <div class="field"><label for="background-color">Background colour</label><input id="background-color" type="color" value="#ffffff"></div>
               <div class="field">
+                <label for="error-correction">Error correction</label>
+                <select id="error-correction">
+                  <option value="auto">Automatic</option><option value="L">L — 7%</option>
+                  <option value="M">M — 15%</option><option value="Q">Q — 25%</option><option value="H">H — 30%</option>
+                </select>
+              </div>
+              <div class="field">
                 <label id="shape-label" for="shape-select">Dot shape</label>
                 <select id="shape-select">
                   <option id="shape-opt-square" value="square">Square</option>
@@ -250,14 +257,6 @@
                 <label for="centre-shape">Corner centre</label>
                 <select id="centre-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option><option value="extra-rounded">Extra rounded</option><option value="diamond">Diamond</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="leaf-reverse">Reverse leaf</option><option value="dot-grid">Nine dots</option><option value="horizontal-bars">Three horizontal bars</option><option value="vertical-bars">Three vertical bars</option></select>
               </div>
-              <div class="field">
-                <label for="error-correction">Error correction</label>
-                <select id="error-correction">
-                  <option value="auto">Automatic</option><option value="L">L — 7%</option>
-                  <option value="M">M — 15%</option><option value="Q">Q — 25%</option><option value="H">H — 30%</option>
-                </select>
-              </div>
-              <div class="field"><label for="quiet-zone">Quiet zone (modules)</label><input id="quiet-zone" type="number" min="0" max="12" step="1" value="4"></div>
             </div>
         </section>
         <div id="scanner-stage" class="scanner-stage scanner-only is-hidden" aria-label="Live camera feed">
@@ -298,7 +297,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.5.0</span>
+    <span id="app-footer-version" class="app-footer-version">v2.6.0</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>

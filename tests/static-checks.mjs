@@ -101,7 +101,7 @@ assert.match(appBrowser, /shortenHintOffline/, "file-compatible app should expos
 for (const mode of ["wifi", "vcard", "email", "phone", "sms", "event", "location"]) {
   assert.match(index, new RegExp(`value="${mode}"`), `structured QR mode ${mode} should be exposed`);
 }
-for (const id of ["error-correction", "quiet-zone", "foreground-color", "background-color", "download-svg", "copy-image", "share-code", "generation-history", "scanner-sound", "scanner-vibrate", "scanner-continuous", "scan-history"]) {
+for (const id of ["error-correction", "foreground-color", "background-color", "download-svg", "copy-image", "share-code", "generation-history", "scanner-sound", "scanner-vibrate", "scanner-continuous", "scan-history"]) {
   assert.match(index, new RegExp(`id="${id}"`), `${id} control should be exposed`);
 }
 assert.match(appBrowser, /makeQrSvg/, "runtime should provide SVG export");
