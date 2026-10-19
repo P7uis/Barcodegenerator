@@ -831,16 +831,16 @@ button:not(.theme-btn):not(.lang-btn):disabled {
   justify-content: center;
   align-items: center;
   min-height: 0;
-  /* Cap preview height so very large render sizes do not push the layout
-     below the viewport. The canvas inside is downscaled via max-width/
-     max-height while the underlying pixel buffer (used for PNG/PDF
-     export) stays at full resolution. */
-  max-height: calc(100dvh - clamp(160px, 28vh, 260px));
+  width: min(100%, 48dvh);
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  align-self: center;
+  margin-inline: auto;
   overflow: hidden;
 }
 
-.preview.hidden {
-  display: none;
+.preview.hidden canvas {
+  visibility: hidden;
 }
 
 .preview canvas {
@@ -882,7 +882,7 @@ button:not(.theme-btn):not(.lang-btn):disabled {
     flex-direction: column;
   }
   .preview-column .preview {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     position: static;
   }
 }
