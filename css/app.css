@@ -397,6 +397,7 @@ label {
   text-align-last: center;
 }
 
+.is-hidden,
 .qr-only.is-hidden,
 .barcode-only.is-hidden,
 .generator-only.is-hidden,
@@ -547,6 +548,9 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px soli
 @media (pointer: coarse) { button:not(.theme-btn):not(.lang-btn), .theme-btn, .lang-btn { min-height: 44px; min-width: 44px; } }
 
 input[type="text"],
+input[type="tel"],
+input[type="email"],
+input[type="datetime-local"],
 input[type="url"],
 input[type="number"],
 input[type="file"],

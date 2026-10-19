@@ -1680,6 +1680,10 @@ function renderStructuredFields() {
   if (!structuredFields) return;
   const schema = STRUCTURED_SCHEMAS[modeSelect.value];
   structuredFields.classList.toggle("is-hidden", !schema);
+  // Busy-state and translation updates also sync the UI. Keep the existing
+  // inputs (including their values and focus) unless the content type changes.
+  if (structuredFields.dataset.mode === modeSelect.value) return;
+  structuredFields.dataset.mode = modeSelect.value;
   structuredFields.innerHTML = schema ? schema.map(([name, label, type]) => `<div class="field"><label for="structured-${name}">${escapeHtml(label)}</label><input id="structured-${name}" data-structured="${name}" type="${type}" ${type === "number" ? 'step="any"' : ""}></div>`).join("") : "";
   structuredFields.querySelectorAll("input").forEach((el) => el.addEventListener("input", scheduleLivePreview));
 }
