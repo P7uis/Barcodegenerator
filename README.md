@@ -25,12 +25,8 @@ Feel free to make pull requests to improve this education project.
 
 - `index.html` is the maintained app entrypoint.
 - `css/app.css` contains the app styling.
-- `js/app-browser.js` wires the file-compatible browser app, validation, language/theme state, calibration, QR/barcode generation, and exports.
-- `js/app.js` keeps the modular source version of the same app logic.
-- `js/qr-render.js` renders QR matrices and optional logos onto canvas.
-- `js/shorten.js` integrates with link-shortening providers.
-- `js/png-dpi.js` injects a `pHYs` chunk into exported PNGs so they declare the correct physical DPI.
-- `js/qr-load.js` and `js/pdf-load.js` load local vendored ESM bundles for the modular source version.
+- `js/app-browser.js` is the canonical, file-compatible application source. It contains validation, language/theme state, calibration, scanning, generation, history, structured QR payloads, quality checks, and exports.
+- The smaller modules in `js/` are retained as reference utilities for contributors, but are not a second application entrypoint or part of the deployed runtime.
 - `manifest.webmanifest`, `service-worker.js`, and `icons/` provide desktop PWA installability and offline caching.
 - `vendor/` contains browser-ready QR, JsBarcode, and PDF libraries used at runtime.
 - `app-single.html` is only a compatibility redirect back to `index.html`.
@@ -57,7 +53,7 @@ python3 -m http.server 4173
 npm test
 ```
 
-The test suite checks that the app has a single maintained entrypoint, the barcode-type dropdown is exposed, local QR/JsBarcode/PDF bundles are present and importable, runtime QR/PDF loading does not use CDNs, a QR matrix can be generated for a known link, and the file-compatible app does not use ES module imports.
+The test suite checks the single maintained entrypoint, structured QR modes, quality controls, local history, scanner preferences, SVG export, bundled libraries, version consistency, and the file-compatible runtime.
 
 ## Privacy And Network Notes
 

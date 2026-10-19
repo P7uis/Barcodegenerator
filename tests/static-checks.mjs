@@ -50,7 +50,9 @@ assert.ok(icon192Stat.size > 1_000, "192px PWA icon looks too small");
 assert.ok(icon512Stat.size > 1_000, "512px PWA icon looks too small");
 
 const serviceWorker = await readFile(files.serviceWorker, "utf8");
-assert.match(serviceWorker, /barcode-creator-tool-v1\.4\.1/, "service worker cache should match the app version");
+const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+assert.match(index, new RegExp(`v${packageJson.version.replaceAll(".", "\\.")}`), "footer version should match package.json");
+assert.match(serviceWorker, new RegExp(`barcode-creator-tool-v${packageJson.version.replaceAll(".", "\\.")}`), "service worker cache should match the app version");
 assert.match(serviceWorker, /\.\/js\/app-browser\.js/, "service worker should cache the browser app");
 assert.match(serviceWorker, /\.\/vendor\/qrcode\.global\.js/, "service worker should cache the QR runtime");
 assert.match(serviceWorker, /\.\/vendor\/jsbarcode\.umd\.min\.js/, "service worker should cache the barcode runtime");
@@ -96,5 +98,14 @@ assert.doesNotMatch(appBrowser, /^import\s/m, "file-compatible app must not use 
 assert.match(appBrowser, /CleanURI.*is\.gd\/v\.gd/s, "file-compatible app copy should disclose third-party link shortening");
 assert.match(appBrowser, /serviceWorker/, "file-compatible app should register the service worker");
 assert.match(appBrowser, /shortenHintOffline/, "file-compatible app should expose offline shortening copy");
+for (const mode of ["wifi", "vcard", "email", "phone", "sms", "event", "location"]) {
+  assert.match(index, new RegExp(`value="${mode}"`), `structured QR mode ${mode} should be exposed`);
+}
+for (const id of ["error-correction", "quiet-zone", "foreground-color", "background-color", "download-svg", "copy-image", "share-code", "generation-history", "scanner-sound", "scanner-vibrate", "scanner-continuous", "scan-history"]) {
+  assert.match(index, new RegExp(`id="${id}"`), `${id} control should be exposed`);
+}
+assert.match(appBrowser, /makeQrSvg/, "runtime should provide SVG export");
+assert.match(appBrowser, /barcode-creator-shortener-consent/, "runtime should request shortening consent");
+assert.match(appBrowser, /moduleMm/, "runtime should calculate physical module size");
 
 console.log("Static checks passed.");

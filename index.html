@@ -102,6 +102,13 @@
               <select id="mode-select">
                 <option id="mode-opt-url" value="url">Web link</option>
                 <option id="mode-opt-text" value="text">Plain text</option>
+                <option value="wifi">Wi-Fi network</option>
+                <option value="vcard">Contact (vCard)</option>
+                <option value="email">Email</option>
+                <option value="phone">Phone call</option>
+                <option value="sms">SMS message</option>
+                <option value="event">Calendar event</option>
+                <option value="location">Location</option>
               </select>
             </div>
             <div class="field qr-only">
@@ -118,6 +125,24 @@
             <label id="payload-label" for="payload">Web address</label>
             <input id="payload" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/page" />
           </div>
+
+          <div id="structured-fields" class="structured-fields qr-only is-hidden" aria-live="polite"></div>
+
+          <details class="advanced qr-only">
+            <summary>QR quality and appearance</summary>
+            <div class="field-grid advanced-grid">
+              <div class="field">
+                <label for="error-correction">Error correction</label>
+                <select id="error-correction">
+                  <option value="auto">Automatic</option><option value="L">L — 7%</option>
+                  <option value="M">M — 15%</option><option value="Q">Q — 25%</option><option value="H">H — 30%</option>
+                </select>
+              </div>
+              <div class="field"><label for="quiet-zone">Quiet zone (modules)</label><input id="quiet-zone" type="number" min="0" max="12" step="1" value="4"></div>
+              <div class="field"><label for="foreground-color">Foreground</label><input id="foreground-color" type="color" value="#000000"></div>
+              <div class="field"><label for="background-color">Background</label><input id="background-color" type="color" value="#ffffff"></div>
+            </div>
+          </details>
 
           <div class="qr-only">
             <div class="option-row">
@@ -161,7 +186,14 @@
           <button id="generate" type="button" class="btn-primary">Generate QR</button>
           <button id="download" type="button" class="btn-secondary" disabled>Download PNG</button>
           <button id="download-pdf" type="button" class="btn-secondary" disabled>Download A4 PDF</button>
+          <button id="download-svg" type="button" class="btn-secondary" disabled>Download SVG</button>
+          <button id="copy-image" type="button" class="btn-secondary" disabled>Copy image</button>
+          <button id="share-code" type="button" class="btn-secondary" disabled>Share</button>
+          <button id="reset-app" type="button" class="btn-secondary">Reset</button>
         </div>
+
+        <div id="quality-info" class="quality-info generator-only" role="status" aria-live="polite"></div>
+        <details class="history-panel generator-only"><summary>Recent codes (stored only on this device)</summary><div id="generation-history" class="history-list"></div></details>
 
         <section class="panel scanner-only is-hidden" id="scanner-panel" aria-labelledby="scanner-title">
           <h2 id="scanner-title" class="scanner-title">Camera scanner</h2>
@@ -170,8 +202,15 @@
             <button id="scanner-start" type="button" class="btn-primary">Start scan</button>
             <button id="scanner-stop" type="button" class="btn-secondary" disabled>Stop</button>
             <button id="scanner-image" type="button" class="btn-secondary">Choose image</button>
+            <button id="scanner-torch" type="button" class="btn-secondary" hidden>Torch</button>
             <input id="scanner-image-file" type="file" accept="image/*" hidden>
           </div>
+          <div class="scanner-preferences">
+            <label><input id="scanner-sound" type="checkbox" checked> Sound</label>
+            <label><input id="scanner-vibrate" type="checkbox" checked> Vibrate</label>
+            <label><input id="scanner-continuous" type="checkbox"> Continuous scanning</label>
+          </div>
+          <details><summary>Scan history</summary><div id="scan-history" class="history-list"></div></details>
           <div id="scanner-result" class="scanner-result is-hidden" aria-live="polite">
             <div class="scanner-result-meta">
               <span id="scanner-result-format" class="scanner-result-format"></span>
@@ -217,7 +256,8 @@
       </section>
     </div>
 
-    <div class="error" id="error" aria-live="polite"></div>
+    <div class="error" id="error" aria-live="assertive"></div>
+    <div id="app-status" class="sr-only" role="status" aria-live="polite"></div>
   </main>
 
   <!--
@@ -247,7 +287,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v1.4.1</span>
+    <span id="app-footer-version" class="app-footer-version">v2.0.0</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
