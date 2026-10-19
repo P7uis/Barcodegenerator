@@ -114,14 +114,6 @@
                 <option value="location">Location</option>
               </select>
             </div>
-            <div class="field qr-only">
-              <label id="shape-label" for="shape-select">QR style</label>
-              <select id="shape-select">
-                <option id="shape-opt-square" value="square">Square</option>
-                <option id="shape-opt-rounded" value="rounded">Rounded</option>
-                <option id="shape-opt-dots" value="dots">Dots</option>
-              </select>
-            </div>
           </div>
 
           <div class="field">
@@ -240,6 +232,18 @@
             <h2 id="qr-appearance-heading" class="appearance-heading">QR quality and appearance</h2>
             <div class="field-grid advanced-grid">
               <div class="field">
+                <label id="shape-label" for="shape-select">Dot shape</label>
+                <select id="shape-select">
+                  <option id="shape-opt-square" value="square">Square</option>
+                  <option id="shape-opt-rounded" value="rounded">Rounded</option>
+                  <option id="shape-opt-dots" value="dots">Dots</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="corner-shape">Corner shape</label>
+                <select id="corner-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option></select>
+              </div>
+              <div class="field">
                 <label for="error-correction">Error correction</label>
                 <select id="error-correction">
                   <option value="auto">Automatic</option><option value="L">L — 7%</option>
@@ -289,7 +293,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.3.3</span>
+    <span id="app-footer-version" class="app-footer-version">v2.4.0</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>

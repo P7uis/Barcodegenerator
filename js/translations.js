@@ -2,6 +2,11 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["Dot shape", "Vorm van de blokjes", "Form der Module"],
+    ["Corner shape", "Vorm van de hoekmarkeringen", "Form der Eckmarkierungen"],
+    ["Square", "Vierkant", "Quadratisch"],
+    ["Rounded", "Afgerond", "Abgerundet"],
+    ["Circular", "Rond", "Kreisförmig"],
     ["Save to Recents", "Opslaan bij recente codes", "Unter den letzten Codes speichern"],
     ["Saved to Recents.", "Opgeslagen bij recente codes.", "Unter den letzten Codes gespeichert."],
     ["Back to generator", "Terug naar de generator", "Zurück zum Generator"],

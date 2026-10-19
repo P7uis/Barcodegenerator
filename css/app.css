@@ -118,6 +118,7 @@ body {
 }
 
 .topbar > .lead {
+  font-size: clamp(0.95rem, 0.85rem + 0.25vw, 1.08rem);
   flex: 1 1 240px;
   min-width: 0;
   margin: 0;

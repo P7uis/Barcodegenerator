@@ -352,9 +352,9 @@ function drawFinder(ctx, left, top, unit, finderShape, background) {
   const outer = unit * 7;
   const innerCut = unit * 5;
   const center = unit * 3;
-  const outerRadius = finderShape === "square" ? 0 : unit * 1.2;
-  const centerRadius = finderShape === "square" ? 0 : unit * 0.9;
-  const innerRadius = Math.max(0, outerRadius - unit * 0.45);
+  const outerRadius = finderShape === "circle" ? outer / 2 : finderShape === "square" ? 0 : unit * 1.2;
+  const centerRadius = finderShape === "circle" ? center / 2 : finderShape === "square" ? 0 : unit * 0.9;
+  const innerRadius = finderShape === "circle" ? innerCut / 2 : Math.max(0, outerRadius - unit * 0.45);
 
   // Paint the inner ring with opaque white instead of erasing it via
   // destination-out, otherwise the saved PNG ends up with transparent rings
@@ -403,7 +403,7 @@ function rectIntersectsLogoMask(mask, left, top, right, bottom) {
   return false;
 }
 
-function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSidePx, foreground, background) {
+function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSidePx, foreground, background, cornerShape = "square") {
   const modules = qrData.modules;
   const size = modules.size;
   const fullCount = size + margin * 2;
@@ -429,7 +429,7 @@ function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSi
     }
   }
 
-  const finderShape = shape === "dots" ? "rounded" : shape;
+  const finderShape = cornerShape;
   drawFinder(ctx, margin * unit, margin * unit, unit, finderShape, background);
   drawFinder(ctx, (margin + size - 7) * unit, margin * unit, unit, finderShape, background);
   drawFinder(ctx, margin * unit, (margin + size - 7) * unit, unit, finderShape, background);
@@ -441,7 +441,7 @@ function renderQrToCanvas(canvasEl, text, QRCode, options = {}) {
       const logo = options.logoImage && options.logoImage.complete ? options.logoImage : null;
       const qrData = QRCode.create(text, { errorCorrectionLevel: logo ? "H" : (options.errorCorrectionLevel || "M") });
       const logoSidePx = logo ? options.logoSizePx || Math.round((options.width || 256) * 0.22) : 0;
-      paintStyledQr(canvasEl, qrData, options.width || 256, Number.isFinite(options.margin) ? options.margin : 4, options.moduleShape || "square", logo, logoSidePx, options.foreground || "#000000", options.background || "#ffffff");
+      paintStyledQr(canvasEl, qrData, options.width || 256, Number.isFinite(options.margin) ? options.margin : 4, options.moduleShape || "square", logo, logoSidePx, options.foreground || "#000000", options.background || "#ffffff", options.cornerShape || "square");
       if (logo && logo.naturalWidth > 0) {
         drawCenterLogo(canvasEl, logo, logoSidePx);
       }
@@ -557,6 +557,7 @@ const sizeValue = document.getElementById("qr-size-value");
 const barcodeTypeSelect = document.getElementById("barcode-type");
 const modeSelect = document.getElementById("mode-select");
 const shapeSelect = document.getElementById("shape-select");
+const cornerShapeSelect = document.getElementById("corner-shape");
 const langButtons = Array.from(document.querySelectorAll(".lang-switcher [data-lang]"));
 const chkShorten = document.getElementById("opt-shorten");
 const chkLogo = document.getElementById("opt-logo");
@@ -1011,11 +1012,13 @@ const I18N = {
 };
 
 Object.assign(I18N.en, {
+  shapeLabel: "Dot shape",
   lead: "Create a QR code or barcode. Add a logo, choose a style, and download your code for print or digital use.",
   logoHint: "Uses high error correction to keep the code readable. Upload a logo file for the most reliable export.",
   errDownloadFailed: "Download failed. If you used an online logo, try uploading the image as a file instead.",
 });
 Object.assign(I18N.nl, {
+  shapeLabel: "Vorm van de blokjes",
   pageTitle: "Barcodegenerator", headerTitle: "Barcodegenerator",
   lead: "Maak een QR-code of barcode. Voeg een logo toe, kies een stijl en download je code voor drukwerk of digitaal gebruik.",
   shortenHint: "Een kortere link levert een eenvoudigere QR-code op die vaak makkelijker te scannen is.",
@@ -1030,6 +1033,7 @@ Object.assign(I18N.nl, {
   errDownloadFailed: "Downloaden is mislukt. Heb je een online logo gebruikt? Upload de afbeelding dan als bestand en probeer het opnieuw.",
 });
 Object.assign(I18N.de, {
+  shapeLabel: "Form der Module",
   lead: "Erstelle einen QR-Code oder Barcode. Füge ein Logo hinzu, wähle einen Stil und lade deinen Code für den Druck oder die digitale Nutzung herunter.",
   sizeLabel: "Außenmaß (cm)",
   calibrateHint: "Lege den linken Rand des Balkens bei 0 auf einem Lineal an und ziehe den rechten Rand genau auf 5 cm. Die Einstellung wird für deinen nächsten Besuch gespeichert.",
@@ -1103,6 +1107,7 @@ function setBusy(busy) {
   barcodeTypeSelect.disabled = busy;
   modeSelect.disabled = busy;
   shapeSelect.disabled = busy;
+  cornerShapeSelect.disabled = busy;
   for (const btn of langButtons) btn.disabled = busy;
   for (const btn of themeButtons) btn.disabled = busy;
   syncBarcodeTypeUi();
@@ -1888,12 +1893,22 @@ function colourContrast(a, b) {
   const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
 }
 
-function makeQrSvg(qrData, margin, foreground, background) {
+function makeQrSvg(qrData, margin, foreground, background, shape = "square", cornerShape = "square") {
   const size = qrData.modules.size;
   const total = size + margin * 2;
-  let path = "";
-  for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) if (isDark(qrData.modules, x, y)) path += `M${x + margin} ${y + margin}h1v1h-1z`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${background}"/><path fill="${foreground}" d="${path}"/></svg>`;
+  let content = "";
+  for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
+    if (!isDark(qrData.modules, x, y) || isInFinder(x, y, size)) continue;
+    content += shape === "dots"
+      ? `<circle cx="${x + margin + .5}" cy="${y + margin + .5}" r="0.38" fill="${foreground}"/>`
+      : `<rect x="${x + margin}" y="${y + margin}" width="1" height="1" rx="${shape === "rounded" ? .32 : 0}" fill="${foreground}"/>`;
+  }
+  for (const [x, y] of [[margin, margin], [margin + size - 7, margin], [margin, margin + size - 7]]) {
+    for (const [offset, width, radius, colour] of [[0, 7, cornerShape === "circle" ? 3.5 : cornerShape === "rounded" ? 1.2 : 0, foreground], [1, 5, cornerShape === "circle" ? 2.5 : cornerShape === "rounded" ? .75 : 0, background], [2, 3, cornerShape === "circle" ? 1.5 : cornerShape === "rounded" ? .9 : 0, foreground]]) {
+      content += `<rect x="${x + offset}" y="${y + offset}" width="${width}" height="${width}" rx="${radius}" fill="${colour}"/>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}"><rect width="100%" height="100%" fill="${background}"/>${content}</svg>`;
 }
 
 function announce(message) { if (appStatus) appStatus.textContent = message; }
@@ -1914,7 +1929,7 @@ function rememberGeneration(payload, type = currentBarcodeType) {
 }
 
 function persistSettings() {
-  storageWrite(SETTINGS_KEY, { barcodeType: barcodeTypeSelect.value, mode: modeSelect.value, shape: shapeSelect.value, size: sizeInput.value, ecc: errorCorrectionSelect.value, quiet: quietZoneInput.value, foreground: foregroundInput.value, background: backgroundInput.value });
+  storageWrite(SETTINGS_KEY, { barcodeType: barcodeTypeSelect.value, mode: modeSelect.value, shape: shapeSelect.value, cornerShape: cornerShapeSelect.value, size: sizeInput.value, ecc: errorCorrectionSelect.value, quiet: quietZoneInput.value, foreground: foregroundInput.value, background: backgroundInput.value });
 }
 
 function restoreSettings() {
@@ -1922,6 +1937,7 @@ function restoreSettings() {
   if (s.barcodeType && BARCODE_TYPES[s.barcodeType]) barcodeTypeSelect.value = s.barcodeType;
   if (s.mode) modeSelect.value = s.mode;
   if (s.shape) shapeSelect.value = s.shape;
+  if (s.cornerShape) cornerShapeSelect.value = s.cornerShape;
   if (s.size) sizeInput.value = s.size;
   if (s.ecc) errorCorrectionSelect.value = s.ecc;
   if (s.quiet) quietZoneInput.value = s.quiet;
@@ -2011,11 +2027,12 @@ async function onGenerate(options = {}) {
         logoImage: logoForQr,
         logoSizePx: logoForQr ? Math.round(getLogoSizeCm() * PX_PER_CM) : 0,
         moduleShape,
+        cornerShape: cornerShapeSelect.value,
         errorCorrectionLevel: ecc,
         foreground,
         background,
       });
-      lastSvgText = makeQrSvg(qrData, margin, foreground, background);
+      lastSvgText = makeQrSvg(qrData, margin, foreground, background, moduleShape, cornerShapeSelect.value);
       const moduleMm = (qrSize.cm * 10) / (qrData.modules.size + margin * 2);
       lastQrMeta = { modules: qrData.modules.size, margin, ecc, moduleMm, contrast: colourContrast(foreground, background) };
       lastCanvasAspect = 1;
@@ -2147,7 +2164,7 @@ function resetApp() {
   if (!confirm(window.localizeUi("Reset all generator settings and local history?"))) return;
   btnSaveRecent.disabled = true;
   try { localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(HISTORY_KEY); localStorage.removeItem(SCAN_HISTORY_KEY); } catch { /* ignore */ }
-  input.value = ""; shapeSelect.value = "square";
+  input.value = ""; shapeSelect.value = "square"; cornerShapeSelect.value = "square";
   // Rebuild the current category to clear its fields and map pin without
   // changing the user's selected barcode type or content category.
   delete structuredFields.dataset.mode;
@@ -2714,6 +2731,7 @@ input.addEventListener("keydown", (e) => {
 });
 
 [input, sizeInput, sizeSlider, shapeSelect, errorCorrectionSelect, quietZoneInput, foregroundInput, backgroundInput, logoSizeInput, logoUrlInput].filter(Boolean).forEach((el) => el.addEventListener("input", scheduleLivePreview));
+cornerShapeSelect.addEventListener("input", scheduleLivePreview);
 [chkLogo, chkShorten].filter(Boolean).forEach((el) => el.addEventListener("change", scheduleLivePreview));
 modeSelect.addEventListener("change", () => { renderStructuredFields(); syncBarcodeTypeUi(); scheduleLivePreview(); });
 
