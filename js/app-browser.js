@@ -640,6 +640,8 @@ const SCAN_BELL_PARTIALS = [
 ];
 
 let scannerRunning = false;
+let scannerMode = false;
+const scannerCameraSelect = document.getElementById("scanner-camera");
 /** @type {MediaStream|null} */ let scannerStream = null;
 /** @type {any} */ let barcodeDetector = null;
 let scannerRafId = 0;
@@ -1385,7 +1387,7 @@ function setText(id, value) {
 
 function syncBarcodeTypeUi() {
   const selected = barcodeTypeSelect.value;
-  const isScanner = selected === "scanner";
+  const isScanner = scannerMode;
   currentBarcodeType = isScanner
     ? "scanner"
     : BARCODE_TYPES[selected]
@@ -2337,9 +2339,12 @@ async function startScanner() {
     setScannerStatus(usingFallback ? t("scannerScanningQrOnly") : t("scannerScanning"));
 
     scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
+      video: scannerCameraSelect && scannerCameraSelect.value
+        ? { deviceId: { exact: scannerCameraSelect.value } }
+        : { facingMode: { ideal: "environment" } },
       audio: false,
     });
+    await refreshCameraList();
     const videoTrack = scannerStream.getVideoTracks()[0];
     const capabilities = videoTrack && typeof videoTrack.getCapabilities === "function" ? videoTrack.getCapabilities() : {};
     if (scannerTorchBtn) scannerTorchBtn.hidden = !capabilities.torch;
@@ -2597,10 +2602,39 @@ if (scannerOpenLink) scannerOpenLink.addEventListener("click", (event) => {
 const openScannerBtn = document.getElementById("open-scanner");
 if (openScannerBtn) {
   openScannerBtn.addEventListener("click", () => {
-    if (barcodeTypeSelect.value === "scanner") return;
-    barcodeTypeSelect.value = "scanner";
-    barcodeTypeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    if (scannerMode) return;
+    scannerMode = true;
+    syncBarcodeTypeUi();
+    void refreshCameraList();
   });
+}
+
+document.getElementById("open-generator").addEventListener("click", () => {
+  scannerMode = false;
+  syncBarcodeTypeUi();
+  document.getElementById("open-scanner").focus();
+});
+
+async function refreshCameraList() {
+  if (!scannerCameraSelect || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  try {
+    const devices = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === "videoinput");
+    const selected = scannerCameraSelect.value;
+    scannerCameraSelect.replaceChildren(new Option(window.localizeUi("Default camera"), ""));
+    devices.forEach((device, index) => {
+      if (device.deviceId) scannerCameraSelect.add(new Option(device.label || `${window.localizeUi("Camera")} ${index + 1}`, device.deviceId));
+    });
+    if ([...scannerCameraSelect.options].some((option) => option.value === selected)) scannerCameraSelect.value = selected;
+  } catch { /* Camera permission is requested only when the user starts scanning. */ }
+}
+
+scannerCameraSelect.addEventListener("change", () => {
+  const restart = scannerRunning;
+  stopScanner({ keepResult: true });
+  if (restart) void startScanner();
+});
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+  navigator.mediaDevices.addEventListener("devicechange", () => { if (scannerMode) void refreshCameraList(); });
 }
 
 // Free the camera if the user closes / hides the tab while scanning.

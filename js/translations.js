@@ -2,6 +2,9 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["Back to generator", "Terug naar de generator", "Zurück zum Generator"],
+    ["Camera", "Camera", "Kamera"],
+    ["Default camera", "Standaardcamera", "Standardkamera"],
     ["Wi-Fi network", "Wifi-netwerk", "WLAN-Netzwerk"],
     ["Contact (vCard)", "Contactpersoon (vCard)", "Kontakt (vCard)"],
     ["Email", "E-mail", "E-Mail"],

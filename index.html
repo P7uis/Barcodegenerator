@@ -63,10 +63,9 @@
     </div>
 
     <header class="topbar">
-      <div class="barcode-type-field" role="group" aria-labelledby="barcode-type-label">
+      <div class="barcode-type-field generator-only" role="group" aria-labelledby="barcode-type-label">
         <label id="barcode-type-label" for="barcode-type">Barcode type</label>
         <select id="barcode-type">
-          <option id="bt-opt-scanner" value="scanner">Barcode scanner</option>
           <option id="bt-opt-qr" value="qr" selected>QR Code</option>
           <option id="bt-opt-code128" value="code128">Code 128</option>
           <option id="bt-opt-ean13" value="ean13">EAN-13</option>
@@ -87,6 +86,11 @@
         </svg>
         <span id="open-scanner-label">Scan a code</span>
       </button>
+      <button id="open-generator" type="button" class="btn-primary topbar-scan-btn scanner-only is-hidden">Back to generator</button>
+      <div class="barcode-type-field scanner-only is-hidden">
+        <label for="scanner-camera">Camera</label>
+        <select id="scanner-camera"><option value="">Default camera</option></select>
+      </div>
     </header>
 
     <p id="lead-copy" class="lead">
@@ -287,7 +291,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.1.1</span>
+    <span id="app-footer-version" class="app-footer-version">v2.2.0</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
