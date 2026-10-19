@@ -1126,6 +1126,9 @@ function syncShortenAvailability() {
   const def = BARCODE_TYPES[selected] || BARCODE_TYPES.qr;
   const isQr = selected !== "scanner" && def.kind === "qr";
   const isUrlMode = modeSelect.value === "url";
+  const showShortening = !scannerMode && isQr && isUrlMode;
+  chkShorten.closest(".option-row").classList.toggle("is-hidden", !showShortening);
+  document.getElementById("shorten-hint").classList.toggle("is-hidden", !showShortening);
   chkShorten.disabled = btnGen.disabled || !isQr || !isUrlMode || isOffline;
   if (!isQr || !isUrlMode || isOffline) chkShorten.checked = false;
   syncOfflineUi();
