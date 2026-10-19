@@ -132,22 +132,6 @@
 
           <div id="structured-fields" class="structured-fields qr-only is-hidden" aria-live="polite"></div>
 
-          <details class="advanced qr-only">
-            <summary>QR quality and appearance</summary>
-            <div class="field-grid advanced-grid">
-              <div class="field">
-                <label for="error-correction">Error correction</label>
-                <select id="error-correction">
-                  <option value="auto">Automatic</option><option value="L">L — 7%</option>
-                  <option value="M">M — 15%</option><option value="Q">Q — 25%</option><option value="H">H — 30%</option>
-                </select>
-              </div>
-              <div class="field"><label for="quiet-zone">Quiet zone (modules)</label><input id="quiet-zone" type="number" min="0" max="12" step="1" value="4"></div>
-              <div class="field"><label for="foreground-color">Foreground</label><input id="foreground-color" type="color" value="#000000"></div>
-              <div class="field"><label for="background-color">Background</label><input id="background-color" type="color" value="#ffffff"></div>
-            </div>
-          </details>
-
           <div class="qr-only">
             <div class="option-row">
               <input type="checkbox" id="opt-shorten" />
@@ -253,6 +237,21 @@
         <div class="preview generator-only hidden" id="preview">
           <canvas id="qr-canvas" width="256" height="256" aria-label="QR code preview"></canvas>
         </div>
+        <details class="advanced qr-only generator-only">
+            <summary>QR quality and appearance</summary>
+            <div class="field-grid advanced-grid">
+              <div class="field">
+                <label for="error-correction">Error correction</label>
+                <select id="error-correction">
+                  <option value="auto">Automatic</option><option value="L">L — 7%</option>
+                  <option value="M">M — 15%</option><option value="Q">Q — 25%</option><option value="H">H — 30%</option>
+                </select>
+              </div>
+              <div class="field"><label for="quiet-zone">Quiet zone (modules)</label><input id="quiet-zone" type="number" min="0" max="12" step="1" value="4"></div>
+              <div class="field"><label for="foreground-color">Foreground</label><input id="foreground-color" type="color" value="#000000"></div>
+              <div class="field"><label for="background-color">Background</label><input id="background-color" type="color" value="#ffffff"></div>
+            </div>
+        </details>
         <div id="scanner-stage" class="scanner-stage scanner-only is-hidden" aria-label="Live camera feed">
           <video id="scanner-video" playsinline muted autoplay></video>
           <div class="scanner-overlay" aria-hidden="true"></div>
@@ -291,7 +290,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.2.2</span>
+    <span id="app-footer-version" class="app-footer-version">v2.2.3</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
