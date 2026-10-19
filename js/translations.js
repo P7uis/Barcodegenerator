@@ -2,6 +2,7 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["Inward leaf", "Bladvorm naar het midden", "Zur Mitte gerichtete Blattform"],
     ["Dots", "Stippen", "Punkte"],
     ["Corner frame", "Rand van de hoekmarkeringen", "Rahmen der Eckmarkierungen"],
     ["Corner centre", "Midden van de hoekmarkeringen", "Mitte der Eckmarkierungen"],

@@ -23,9 +23,13 @@ for (const [body, frame, centre] of [...bodies.map((shape) => [shape, "square", 
   const svg = context.makeQrSvg(qr, 4, "#123456", "#ffffff", body, frame, centre);
   assert.ok(!/NaN|undefined|Infinity/.test(svg));
   // Canvas and SVG must use the same frame, cutout and centre paths.
-  const painted = [];
-  const ctx = { save() {}, restore() {}, fill(value) { painted.push(value.path); } };
-  context.drawFinder(ctx, 4, 4, 1, frame, "#ffffff", centre);
-  for (const path of painted) assert.ok(svg.includes(`d="${path}"`), `${frame}/${centre} canvas/SVG parity`);
+  const positions = [[4, 4], [4 + qr.modules.size - 7, 4], [4, 4 + qr.modules.size - 7]];
+  for (const [corner, [x, y]] of positions.entries()) {
+    const painted = [];
+    const ctx = { save() {}, restore() {}, fill(value) { painted.push(value.path); } };
+    context.drawFinder(ctx, x, y, 1, frame, "#ffffff", centre, corner);
+    for (const path of painted) assert.ok(svg.includes(`d="${path}"`), `${frame}/${centre} corner ${corner} canvas/SVG parity`);
+  }
 }
+assert.equal(new Set([0, 1, 2].map((corner) => context.qrShapePath("leaf-inward", 0, 0, 7, corner))).size, 3, "inward leaves must use three different orientations");
 console.log(`QR shape checks passed (${bodies.length} body, ${frames.length} frame, ${centres.length} centre styles).`);

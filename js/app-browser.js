@@ -337,8 +337,13 @@ function isInFinder(x, y, size) {
 }
 
 // One set of vector paths is used by both canvas and SVG exports.
-function qrShapePath(shape, x, y, size) {
+function qrShapePath(shape, x, y, size, corner = 0) {
   const right = x + size, bottom = y + size, midX = x + size / 2, midY = y + size / 2;
+  if (shape === "leaf-inward") {
+    const r = size * .48;
+    const [tl, tr, br, bl] = corner === 1 ? [r, r, r, 0] : corner === 2 ? [r, 0, r, r] : [r, r, 0, r];
+    return `M${x + tl} ${y}H${right - tr}Q${right} ${y} ${right} ${y + tr}V${bottom - br}Q${right} ${bottom} ${right - br} ${bottom}H${x + bl}Q${x} ${bottom} ${x} ${bottom - bl}V${y + tl}Q${x} ${y} ${x + tl} ${y}Z`;
+  }
   if (shape === "circle" || shape === "dots") {
     const r = size * (shape === "dots" ? .38 : .5);
     return `M${midX - r} ${midY}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0Z`;
@@ -383,12 +388,12 @@ function drawModule(ctx, px, py, unit, shape) {
   ctx.fill(new Path2D(qrShapePath(shape, px, py, unit)));
 }
 
-function drawFinder(ctx, left, top, unit, finderShape, background, centreShape = "square") {
-  ctx.fill(new Path2D(qrShapePath(finderShape, left, top, unit * 7)));
+function drawFinder(ctx, left, top, unit, finderShape, background, centreShape = "square", corner = 0) {
+  ctx.fill(new Path2D(qrShapePath(finderShape, left, top, unit * 7, corner)));
   ctx.save(); ctx.fillStyle = background;
-  ctx.fill(new Path2D(qrShapePath(finderShape, left + unit, top + unit, unit * 5)));
+  ctx.fill(new Path2D(qrShapePath(finderShape, left + unit, top + unit, unit * 5, corner)));
   ctx.restore();
-  ctx.fill(new Path2D(qrShapePath(centreShape, left + unit * 2, top + unit * 2, unit * 3)));
+  ctx.fill(new Path2D(qrShapePath(centreShape, left + unit * 2, top + unit * 2, unit * 3, corner)));
 }
 
 function createLogoMask(canvasEl, img, logoSidePx) {
@@ -455,8 +460,8 @@ function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSi
 
   const finderShape = cornerShape;
   drawFinder(ctx, margin * unit, margin * unit, unit, finderShape, background, centreShape);
-  drawFinder(ctx, (margin + size - 7) * unit, margin * unit, unit, finderShape, background, centreShape);
-  drawFinder(ctx, margin * unit, (margin + size - 7) * unit, unit, finderShape, background, centreShape);
+  drawFinder(ctx, (margin + size - 7) * unit, margin * unit, unit, finderShape, background, centreShape, 1);
+  drawFinder(ctx, margin * unit, (margin + size - 7) * unit, unit, finderShape, background, centreShape, 2);
 }
 
 function renderQrToCanvas(canvasEl, text, QRCode, options = {}) {
@@ -1927,6 +1932,7 @@ function shapeThumbnail(shape, kind) {
 function initShapePickers() {
   const names = { square: "Square", rounded: "Rounded", dots: "Dots", circle: "Circular", "extra-rounded": "Extra rounded", diamond: "Diamond", beveled: "Cut corners", leaf: "Leaf", "leaf-reverse": "Reverse leaf", horizontal: "Horizontal bars", vertical: "Vertical bars", "dot-grid": "Nine dots", "horizontal-bars": "Three horizontal bars", "vertical-bars": "Three vertical bars" };
   for (const [select, kind] of [[shapeSelect, "body"], [cornerShapeSelect, "frame"], [centreShapeSelect, "centre"]]) {
+    names["leaf-inward"] = "Inward leaf";
     const picker = document.createElement("div"); picker.className = "shape-picker";
     const button = document.createElement("button"); button.type = "button"; button.className = "shape-picker-toggle";
     button.id = `${select.id}-picker`; button.setAttribute("aria-haspopup", "listbox"); button.setAttribute("aria-expanded", "false");
@@ -2016,7 +2022,8 @@ function makeQrSvg(qrData, margin, foreground, background, shape = "square", cor
   }
   for (const [x, y] of [[margin, margin], [margin + size - 7, margin], [margin, margin + size - 7]]) {
     for (const [offset, width, style, colour] of [[0, 7, cornerShape, foreground], [1, 5, cornerShape, background], [2, 3, centreShape, foreground]]) {
-      content += `<path d="${qrShapePath(style, x + offset, y + offset, width)}" fill="${colour}"/>`;
+      const corner = x > margin ? 1 : y > margin ? 2 : 0;
+      content += `<path d="${qrShapePath(style, x + offset, y + offset, width, corner)}" fill="${colour}"/>`;
     }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}"><rect width="100%" height="100%" fill="${background}"/>${content}</svg>`;
