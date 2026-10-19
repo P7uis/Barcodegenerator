@@ -2147,11 +2147,14 @@ function resetApp() {
   if (!confirm(window.localizeUi("Reset all generator settings and local history?"))) return;
   btnSaveRecent.disabled = true;
   try { localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(HISTORY_KEY); localStorage.removeItem(SCAN_HISTORY_KEY); } catch { /* ignore */ }
-  input.value = ""; barcodeTypeSelect.value = "qr"; modeSelect.value = "url"; shapeSelect.value = "square";
+  input.value = ""; shapeSelect.value = "square";
+  // Rebuild the current category to clear its fields and map pin without
+  // changing the user's selected barcode type or content category.
+  delete structuredFields.dataset.mode;
   sizeInput.value = "4"; sizeSlider.value = "4"; errorCorrectionSelect.value = "auto"; quietZoneInput.value = "4";
   foregroundInput.value = "#000000"; backgroundInput.value = "#ffffff"; chkLogo.checked = false; chkShorten.checked = false;
   lastEncodedPayload = null; lastSvgText = ""; preview.classList.add("hidden"); setError("");
-  renderStructuredFields(); syncQrSizeUi(); syncLogoInputs(false); syncBarcodeTypeUi(); renderHistory(); renderScanHistory(); announce("Settings reset.");
+  renderStructuredFields(); syncQrSizeUi(); syncLogoInputs(false); syncBarcodeTypeUi(); renderHistory(); renderScanHistory(); persistSettings(); announce("Settings reset.");
 }
 
 async function onDownloadPdf() {
