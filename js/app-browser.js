@@ -340,20 +340,32 @@ function isInFinder(x, y, size) {
 function qrShapePath(shape, x, y, size, corner = 0) {
   const right = x + size, bottom = y + size, midX = x + size / 2, midY = y + size / 2;
   if (shape === "hand-drawn") {
-    // Deterministic rough edges: exports keep the same outline as the preview.
-    // The small variation preserves a substantial, continuous finder ring.
+    // Rough pencil outline plus fine, reverse-wound grain cutouts. Both
+    // renderers use the same paths, so the texture remains stable on export.
+    const seed = Math.round(x / size * 100) * 13 + Math.round(y / size * 100) * 29;
     const edges = [[0, 0, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 0, 0]];
     let path = "";
     for (let edge = 0; edge < edges.length; edge++) {
       const [ax, ay, bx, by] = edges[edge];
       for (let step = 0; step < 24; step++) {
         const t = step / 24, index = edge * 24 + step;
-        const noiseX = Math.sin(index * 71.31 + 2.7) * .014;
-        const noiseY = Math.cos(index * 43.17 + 1.3) * .014;
+        const noiseX = Math.sin(index * 71.31 + seed + 2.7) * .025 + Math.sin(index * .63) * .008;
+        const noiseY = Math.cos(index * 43.17 + seed + 1.3) * .025 + Math.sin(index * .81) * .008;
         path += `${path ? "L" : "M"}${x + size * (ax + (bx - ax) * t + noiseX)} ${y + size * (ay + (by - ay) * t + noiseY)}`;
       }
     }
-    return path + "Z";
+    path += "Z";
+    // Slender graphite gaps suggest layered diagonal pencil strokes without
+    // removing large portions of the dark modules or finder frames.
+    for (let line = 0; line < 40; line++) {
+      const fraction = (value) => value - Math.floor(value);
+      const sx = .06 + fraction(Math.sin(line * 17.31 + seed) * 43758.5453) * .76;
+      const sy = .06 + fraction(Math.sin(line * 31.71 + seed + 3) * 17321.743) * .76;
+      const length = (.045 + fraction(Math.sin(line * 9.2 + 4) * 7331.7) * .09) * size;
+      const px = x + sx * size, py = y + sy * size, width = size * .0035;
+      path += `M${px} ${py}l${length} ${length * .55}h${width}l${-length} ${-length * .55}Z`;
+    }
+    return path;
   }
   if (shape === "scattered") {
     const seed = Math.abs((Math.round(x / size * 1000) * 73 + Math.round(y / size * 1000) * 137 + 19) % 29);
