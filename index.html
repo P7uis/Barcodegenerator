@@ -180,7 +180,6 @@
           <button id="reset-app" type="button" class="btn-secondary">Reset</button>
         </div>
 
-        <div id="quality-info" class="quality-info generator-only" role="status" aria-live="polite"></div>
         <details class="history-panel generator-only"><summary>Recent codes (stored only on this device)</summary><div id="generation-history" class="history-list"></div></details>
 
         <section class="panel scanner-only is-hidden" id="scanner-panel" aria-labelledby="scanner-title">
@@ -251,6 +250,7 @@
               <div class="field"><label for="foreground-color">Foreground</label><input id="foreground-color" type="color" value="#000000"></div>
               <div class="field"><label for="background-color">Background</label><input id="background-color" type="color" value="#ffffff"></div>
             </div>
+            <div id="quality-info" class="quality-info generator-only" role="status" aria-live="polite"></div>
         </section>
         <div id="scanner-stage" class="scanner-stage scanner-only is-hidden" aria-label="Live camera feed">
           <video id="scanner-video" playsinline muted autoplay></video>
@@ -290,7 +290,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.2.5</span>
+    <span id="app-footer-version" class="app-footer-version">v2.2.6</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
