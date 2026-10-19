@@ -1,4 +1,4 @@
-const CACHE_NAME = "barcode-creator-tool-v1.4.1";
+const CACHE_NAME = "barcode-creator-tool-v2.0.0";
 
 const APP_ASSETS = [
   "./",
@@ -7,12 +7,6 @@ const APP_ASSETS = [
   "./manifest.webmanifest",
   "./css/app.css",
   "./js/app-browser.js",
-  "./js/app.js",
-  "./js/qr-render.js",
-  "./js/shorten.js",
-  "./js/png-dpi.js",
-  "./js/qr-load.js",
-  "./js/pdf-load.js",
   "./vendor/qrcode.global.js",
   "./vendor/qrcode.mjs",
   "./vendor/jsbarcode.umd.min.js",

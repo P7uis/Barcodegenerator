@@ -348,7 +348,7 @@ function drawModule(ctx, px, py, unit, shape) {
   ctx.fillRect(px, py, unit, unit);
 }
 
-function drawFinder(ctx, left, top, unit, finderShape) {
+function drawFinder(ctx, left, top, unit, finderShape, background) {
   const outer = unit * 7;
   const innerCut = unit * 5;
   const center = unit * 3;
@@ -361,7 +361,7 @@ function drawFinder(ctx, left, top, unit, finderShape) {
   // where the white quiet-zone of each finder square should be.
   fillRoundRect(ctx, left, top, outer, outer, outerRadius);
   ctx.save();
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = background;
   fillRoundRect(ctx, left + unit, top + unit, innerCut, innerCut, innerRadius);
   ctx.restore();
   fillRoundRect(ctx, left + unit * 2, top + unit * 2, center, center, centerRadius);
@@ -403,7 +403,7 @@ function rectIntersectsLogoMask(mask, left, top, right, bottom) {
   return false;
 }
 
-function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSidePx) {
+function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSidePx, foreground, background) {
   const modules = qrData.modules;
   const size = modules.size;
   const fullCount = size + margin * 2;
@@ -414,9 +414,9 @@ function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSi
   canvasEl.width = width;
   canvasEl.height = width;
   ctx.clearRect(0, 0, width, width);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, width);
-  ctx.fillStyle = "#000000";
+  ctx.fillStyle = foreground;
   const logoMask = logoImage ? createLogoMask(canvasEl, logoImage, logoSidePx) : null;
 
   for (let y = 0; y < size; y += 1) {
@@ -430,18 +430,18 @@ function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSi
   }
 
   const finderShape = shape === "dots" ? "rounded" : shape;
-  drawFinder(ctx, margin * unit, margin * unit, unit, finderShape);
-  drawFinder(ctx, (margin + size - 7) * unit, margin * unit, unit, finderShape);
-  drawFinder(ctx, margin * unit, (margin + size - 7) * unit, unit, finderShape);
+  drawFinder(ctx, margin * unit, margin * unit, unit, finderShape, background);
+  drawFinder(ctx, (margin + size - 7) * unit, margin * unit, unit, finderShape, background);
+  drawFinder(ctx, margin * unit, (margin + size - 7) * unit, unit, finderShape, background);
 }
 
 function renderQrToCanvas(canvasEl, text, QRCode, options = {}) {
   return new Promise((resolve, reject) => {
     try {
       const logo = options.logoImage && options.logoImage.complete ? options.logoImage : null;
-      const qrData = QRCode.create(text, { errorCorrectionLevel: logo ? "H" : "M" });
+      const qrData = QRCode.create(text, { errorCorrectionLevel: logo ? "H" : (options.errorCorrectionLevel || "M") });
       const logoSidePx = logo ? options.logoSizePx || Math.round((options.width || 256) * 0.22) : 0;
-      paintStyledQr(canvasEl, qrData, options.width || 256, options.margin || 2, options.moduleShape || "square", logo, logoSidePx);
+      paintStyledQr(canvasEl, qrData, options.width || 256, Number.isFinite(options.margin) ? options.margin : 4, options.moduleShape || "square", logo, logoSidePx, options.foreground || "#000000", options.background || "#ffffff");
       if (logo && logo.naturalWidth > 0) {
         drawCenterLogo(canvasEl, logo, logoSidePx);
       }
@@ -516,6 +516,9 @@ function renderBarcodeToCanvas(canvasEl, text, JsBarcode, options) {
 const THEME_KEY = "barcode-creator-theme";
 const LANG_KEY = "barcode-creator-lang";
 const CAL_KEY = "barcode-creator-cmcalibration";
+const SETTINGS_KEY = "barcode-creator-settings-v2";
+const HISTORY_KEY = "barcode-creator-history-v2";
+const SCAN_HISTORY_KEY = "barcode-creator-scan-history-v2";
 const CAL_BAR_TARGET_CM = 5;
 const PRINT_DPI = 300;
 const CM_PER_INCH = 2.54;
@@ -565,6 +568,18 @@ const themeButtons = Array.from(document.querySelectorAll(".theme-btn[data-theme
 const btnGen = document.getElementById("generate");
 const btnDl = document.getElementById("download");
 const btnPdf = document.getElementById("download-pdf");
+const btnSvg = document.getElementById("download-svg");
+const btnCopyImage = document.getElementById("copy-image");
+const btnShare = document.getElementById("share-code");
+const btnReset = document.getElementById("reset-app");
+const structuredFields = document.getElementById("structured-fields");
+const errorCorrectionSelect = document.getElementById("error-correction");
+const quietZoneInput = document.getElementById("quiet-zone");
+const foregroundInput = document.getElementById("foreground-color");
+const backgroundInput = document.getElementById("background-color");
+const qualityInfo = document.getElementById("quality-info");
+const appStatus = document.getElementById("app-status");
+const generationHistoryEl = document.getElementById("generation-history");
 const errEl = document.getElementById("error");
 const offlineBanner = document.getElementById("offline-banner");
 const preview = document.getElementById("preview");
@@ -589,6 +604,11 @@ const scannerOpenLink = /** @type {HTMLAnchorElement|null} */ (document.getEleme
 const scannerResult = document.getElementById("scanner-result");
 const scannerResultText = document.getElementById("scanner-result-text");
 const scannerResultFormat = document.getElementById("scanner-result-format");
+const scannerTorchBtn = document.getElementById("scanner-torch");
+const scannerSound = document.getElementById("scanner-sound");
+const scannerVibrate = document.getElementById("scanner-vibrate");
+const scannerContinuous = document.getElementById("scanner-continuous");
+const scanHistoryEl = document.getElementById("scan-history");
 
 // Browser BarcodeDetector format list to request. We intersect with the set
 // the browser actually supports at runtime (Chromium ≥ 87 covers most of
@@ -623,6 +643,8 @@ let scannerRunning = false;
 /** @type {MediaStream|null} */ let scannerStream = null;
 /** @type {any} */ let barcodeDetector = null;
 let scannerRafId = 0;
+let lastScanSignature = "";
+let lastScanAt = 0;
 /** @type {AudioContext|null} */ let scannerAudioContext = null;
 
 // Lazy-loaded jsQR polyfill (QR-only) used when the browser does not ship a
@@ -669,6 +691,8 @@ function loadJsQrLib() {
 
 /** @type {string | null} */
 let lastEncodedPayload = null;
+let lastSvgText = "";
+let lastQrMeta = null;
 let lastQrSizeCm = 4;
 /** Aspect ratio (height / width) of the last successful render. QR = 1.0,
  *  1D barcodes are wider than they are tall. Used for PDF placement. */
@@ -1019,6 +1043,7 @@ function setBusy(busy) {
   } else {
     btnDl.disabled = !lastEncodedPayload;
     btnPdf.disabled = !lastEncodedPayload;
+    if (btnSvg) btnSvg.disabled = !lastEncodedPayload;
   }
   input.disabled = busy;
   sizeInput.disabled = busy;
@@ -1350,12 +1375,18 @@ function syncBarcodeTypeUi() {
 
   if (isQr) {
     const isUrlMode = modeSelect.value === "url";
+    const isStructured = Boolean(STRUCTURED_SCHEMAS[modeSelect.value]);
+    const payloadField = input.closest(".field");
+    if (payloadField) payloadField.classList.toggle("is-hidden", isStructured);
     if (payloadLabel) {
       payloadLabel.textContent = isUrlMode ? t("payloadLabelUrl") : t("payloadLabelText");
     }
     input.type = isUrlMode ? "url" : "text";
     input.placeholder = isUrlMode ? t("payloadPlaceholderUrl") : t("payloadPlaceholderText");
+    renderStructuredFields();
   } else {
+    const payloadField = input.closest(".field");
+    if (payloadField) payloadField.classList.remove("is-hidden");
     if (payloadLabel) payloadLabel.textContent = t("payloadLabelBarcode");
     input.type = "text";
     input.placeholder = def.placeholder || "";
@@ -1615,20 +1646,127 @@ function escapeAttr(s) {
   return escapeHtml(s).replace(/'/g, "&#39;");
 }
 
-async function onGenerate() {
+const STRUCTURED_SCHEMAS = {
+  wifi: [["ssid", "Network name", "text"], ["password", "Password", "text"], ["security", "Security (WPA/WEP/nopass)", "text"], ["hidden", "Hidden network (true/false)", "text"]],
+  vcard: [["name", "Full name", "text"], ["organisation", "Organisation", "text"], ["phone", "Phone", "tel"], ["email", "Email", "email"], ["website", "Website", "url"]],
+  email: [["to", "Recipient", "email"], ["subject", "Subject", "text"], ["body", "Message", "text"]],
+  phone: [["phone", "Phone number", "tel"]],
+  sms: [["phone", "Phone number", "tel"], ["message", "Message", "text"]],
+  event: [["title", "Event title", "text"], ["start", "Start", "datetime-local"], ["end", "End", "datetime-local"], ["location", "Location", "text"]],
+  location: [["latitude", "Latitude", "number"], ["longitude", "Longitude", "number"]],
+};
+
+function structuredValue(name) {
+  const el = structuredFields && structuredFields.querySelector(`[data-structured="${name}"]`);
+  return el ? String(el.value || "").trim() : "";
+}
+
+function escapeWifi(value) { return String(value).replace(/([\\;,:"])/g, "\\$1"); }
+function escapeVcard(value) { return String(value).replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/([,;])/g, "\\$1"); }
+function compactDate(value) { return value ? value.replace(/[-:]/g, "").replace("T", "T") + "00" : ""; }
+
+function buildStructuredPayload(mode) {
+  if (mode === "wifi") return `WIFI:T:${escapeWifi(structuredValue("security") || "WPA")};S:${escapeWifi(structuredValue("ssid"))};P:${escapeWifi(structuredValue("password"))};H:${structuredValue("hidden") === "true" ? "true" : "false"};;`;
+  if (mode === "vcard") return ["BEGIN:VCARD", "VERSION:3.0", `FN:${escapeVcard(structuredValue("name"))}`, `ORG:${escapeVcard(structuredValue("organisation"))}`, `TEL:${escapeVcard(structuredValue("phone"))}`, `EMAIL:${escapeVcard(structuredValue("email"))}`, `URL:${escapeVcard(structuredValue("website"))}`, "END:VCARD"].filter((line) => !/:$/.test(line)).join("\n");
+  if (mode === "email") return `mailto:${encodeURIComponent(structuredValue("to"))}?subject=${encodeURIComponent(structuredValue("subject"))}&body=${encodeURIComponent(structuredValue("body"))}`;
+  if (mode === "phone") return `tel:${structuredValue("phone")}`;
+  if (mode === "sms") return `sms:${structuredValue("phone")}?body=${encodeURIComponent(structuredValue("message"))}`;
+  if (mode === "event") return ["BEGIN:VEVENT", `SUMMARY:${escapeVcard(structuredValue("title"))}`, `DTSTART:${compactDate(structuredValue("start"))}`, `DTEND:${compactDate(structuredValue("end"))}`, `LOCATION:${escapeVcard(structuredValue("location"))}`, "END:VEVENT"].filter((line) => !/:$/.test(line)).join("\n");
+  if (mode === "location") return `geo:${structuredValue("latitude")},${structuredValue("longitude")}`;
+  return "";
+}
+
+function renderStructuredFields() {
+  if (!structuredFields) return;
+  const schema = STRUCTURED_SCHEMAS[modeSelect.value];
+  structuredFields.classList.toggle("is-hidden", !schema);
+  structuredFields.innerHTML = schema ? schema.map(([name, label, type]) => `<div class="field"><label for="structured-${name}">${escapeHtml(label)}</label><input id="structured-${name}" data-structured="${name}" type="${type}" ${type === "number" ? 'step="any"' : ""}></div>`).join("") : "";
+  structuredFields.querySelectorAll("input").forEach((el) => el.addEventListener("input", scheduleLivePreview));
+}
+
+function selectedEcc(hasLogo) {
+  if (hasLogo) return "H";
+  const value = errorCorrectionSelect ? errorCorrectionSelect.value : "auto";
+  return /^(L|M|Q|H)$/.test(value) ? value : "M";
+}
+
+function colourContrast(a, b) {
+  const lum = (hex) => { const parts = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4)); return .2126 * parts[0] + .7152 * parts[1] + .0722 * parts[2]; };
+  const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
+}
+
+function makeQrSvg(qrData, margin, foreground, background) {
+  const size = qrData.modules.size;
+  const total = size + margin * 2;
+  let path = "";
+  for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) if (isDark(qrData.modules, x, y)) path += `M${x + margin} ${y + margin}h1v1h-1z`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${background}"/><path fill="${foreground}" d="${path}"/></svg>`;
+}
+
+function announce(message) { if (appStatus) appStatus.textContent = message; }
+function storageRead(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
+function storageWrite(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ } }
+
+function renderHistory() {
+  if (!generationHistoryEl) return;
+  const items = storageRead(HISTORY_KEY, []);
+  generationHistoryEl.innerHTML = items.length ? items.map((item, i) => `<div class="history-item"><button type="button" class="btn-secondary" data-history="${i}">${escapeHtml(item.type.toUpperCase())}: ${escapeHtml(item.payload)}</button><small>${new Date(item.time).toLocaleDateString()}</small></div>`).join("") : "<small>No recent codes yet.</small>";
+  generationHistoryEl.querySelectorAll("[data-history]").forEach((btn) => btn.addEventListener("click", () => { const item = items[Number(btn.dataset.history)]; barcodeTypeSelect.value = item.type; syncBarcodeTypeUi(); input.value = item.payload; void onGenerate(); }));
+}
+
+function rememberGeneration(payload) {
+  const items = storageRead(HISTORY_KEY, []).filter((item) => item.payload !== payload);
+  items.unshift({ payload, type: currentBarcodeType, time: Date.now() });
+  storageWrite(HISTORY_KEY, items.slice(0, 10)); renderHistory();
+}
+
+function persistSettings() {
+  storageWrite(SETTINGS_KEY, { barcodeType: barcodeTypeSelect.value, mode: modeSelect.value, shape: shapeSelect.value, size: sizeInput.value, ecc: errorCorrectionSelect.value, quiet: quietZoneInput.value, foreground: foregroundInput.value, background: backgroundInput.value });
+}
+
+function restoreSettings() {
+  const s = storageRead(SETTINGS_KEY, {});
+  if (s.barcodeType && BARCODE_TYPES[s.barcodeType]) barcodeTypeSelect.value = s.barcodeType;
+  if (s.mode) modeSelect.value = s.mode;
+  if (s.shape) shapeSelect.value = s.shape;
+  if (s.size) sizeInput.value = s.size;
+  if (s.ecc) errorCorrectionSelect.value = s.ecc;
+  if (s.quiet) quietZoneInput.value = s.quiet;
+  if (s.foreground) foregroundInput.value = s.foreground;
+  if (s.background) backgroundInput.value = s.background;
+}
+
+let livePreviewTimer = 0;
+function markPreviewStale() {
+  if (!lastEncodedPayload) return;
+  if (qualityInfo) { qualityInfo.textContent = "Settings changed — preview is updating…"; qualityInfo.dataset.tone = "warning"; }
+  btnDl.disabled = true; btnPdf.disabled = true; if (btnSvg) btnSvg.disabled = true;
+}
+function scheduleLivePreview() {
+  persistSettings(); markPreviewStale(); clearTimeout(livePreviewTimer);
+  livePreviewTimer = setTimeout(() => { if ((input.value || "").trim() || STRUCTURED_SCHEMAS[modeSelect.value]) void onGenerate({ silentEmpty: true }); }, 450);
+}
+
+async function onGenerate(options = {}) {
   setError("");
   lastEncodedPayload = null;
   if (encodedEl) encodedEl.textContent = "";
   preview.classList.add("hidden");
   btnDl.disabled = true;
   btnPdf.disabled = true;
+  if (btnSvg) btnSvg.disabled = true;
+  if (btnCopyImage) btnCopyImage.disabled = true;
+  if (btnShare) btnShare.disabled = true;
 
   const def = BARCODE_TYPES[currentBarcodeType] || BARCODE_TYPES.qr;
   const isQr = def.kind === "qr";
 
-  const mode = isQr ? (modeSelect.value === "text" ? "text" : "url") : "barcode";
-  const v = validateAndNormalize(input.value, mode);
+  const selectedMode = modeSelect.value;
+  const structuredPayload = isQr && STRUCTURED_SCHEMAS[selectedMode] ? buildStructuredPayload(selectedMode) : "";
+  const mode = isQr ? (selectedMode === "text" || STRUCTURED_SCHEMAS[selectedMode] ? "text" : "url") : "barcode";
+  const v = validateAndNormalize(structuredPayload || input.value, mode);
   if (!v.ok) {
+    if (options.silentEmpty) return;
     setError(v.message);
     return;
   }
@@ -1646,6 +1784,13 @@ async function onGenerate() {
 
     if (isQr) {
       if (mode === "url" && chkShorten.checked) {
+        let accepted = false;
+        try { accepted = localStorage.getItem("barcode-creator-shortener-consent") === "yes"; } catch { /* ignore */ }
+        if (!accepted) {
+          accepted = confirm("Shortening sends this URL to CleanURI and may fall back to is.gd or v.gd. Do not shorten private or sensitive links. Continue?");
+          if (!accepted) throw new Error("URL shortening cancelled.");
+          try { localStorage.setItem("barcode-creator-shortener-consent", "yes"); } catch { /* ignore */ }
+        }
         payload = await shortenUrlAuto(v.payload);
       }
       const logoForQr = await resolveLogoForRender();
@@ -1653,6 +1798,11 @@ async function onGenerate() {
       const moduleShape =
         selectedShape === "rounded" || selectedShape === "dots" ? selectedShape : "square";
       const QRCode = await loadQrModule();
+      const ecc = selectedEcc(Boolean(logoForQr));
+      const margin = Math.max(0, Math.min(12, Number.parseInt(quietZoneInput.value, 10) || 0));
+      const foreground = foregroundInput.value;
+      const background = backgroundInput.value;
+      const qrData = QRCode.create(payload, { errorCorrectionLevel: ecc });
 
       await renderQrToCanvas(canvas, payload, QRCode, {
         // margin: 0 means the bitmap === the visible QR pattern. The chosen
@@ -1660,11 +1810,17 @@ async function onGenerate() {
         // a ruler. The surrounding paper / screen background still provides
         // the scan-quiet-zone in practice.
         width: renderPx,
-        margin: 0,
+        margin,
         logoImage: logoForQr,
         logoSizePx: logoForQr ? Math.round(getLogoSizeCm() * PX_PER_CM) : 0,
         moduleShape,
+        errorCorrectionLevel: ecc,
+        foreground,
+        background,
       });
+      lastSvgText = makeQrSvg(qrData, margin, foreground, background);
+      const moduleMm = (qrSize.cm * 10) / (qrData.modules.size + margin * 2);
+      lastQrMeta = { modules: qrData.modules.size, margin, ecc, moduleMm, contrast: colourContrast(foreground, background) };
       lastCanvasAspect = 1;
     } else {
       const JsBarcode = await loadJsBarcodeLib();
@@ -1680,6 +1836,10 @@ async function onGenerate() {
         throw new Error(`${t("errInvalidBarcodeValue")} (${msg})`);
       }
       lastCanvasAspect = canvas.width > 0 ? canvas.height / canvas.width : 1;
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      JsBarcode(svg, payload, { format: def.jsbFormat, displayValue: true, margin: 10, background: backgroundInput.value, lineColor: foregroundInput.value });
+      lastSvgText = new XMLSerializer().serializeToString(svg);
+      lastQrMeta = null;
     }
 
     lastEncodedPayload = payload;
@@ -1694,6 +1854,25 @@ async function onGenerate() {
     preview.classList.remove("hidden");
     applyPreviewDisplaySize();
     btnDl.disabled = false;
+    if (btnSvg) btnSvg.disabled = false;
+    if (btnCopyImage) btnCopyImage.disabled = !(navigator.clipboard && globalThis.ClipboardItem);
+    if (btnShare) btnShare.disabled = typeof navigator.share !== "function";
+    if (qualityInfo) {
+      if (lastQrMeta) {
+        const warnings = [];
+        if (lastQrMeta.moduleMm < .4) warnings.push("modules may be too small for reliable print scanning");
+        if (lastQrMeta.margin < 4) warnings.push("use a 4-module quiet zone");
+        if (lastQrMeta.contrast < 4.5) warnings.push("increase colour contrast");
+        qualityInfo.textContent = `QR ${lastQrMeta.modules}×${lastQrMeta.modules} modules · ${lastQrMeta.moduleMm.toFixed(2)} mm/module · ECC ${lastQrMeta.ecc} · quiet zone ${lastQrMeta.margin}. ${warnings.length ? "Warning: " + warnings.join("; ") + "." : "Good scan profile."}`;
+        qualityInfo.dataset.tone = warnings.length ? "warning" : "good";
+      } else {
+        qualityInfo.textContent = `Barcode rendered at ${qrSize.cm} cm. Validate the printed result with a representative scanner.`;
+        qualityInfo.dataset.tone = "good";
+      }
+    }
+    rememberGeneration(payload);
+    persistSettings();
+    announce("Code generated and ready to download.");
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     setError(msg || "Something went wrong.");
@@ -1723,9 +1902,52 @@ function onDownload() {
     a.download = `${downloadBaseName()}.png`;
     a.href = dataUrl;
     a.click();
+    announce("PNG downloaded.");
   } catch {
     setError(t("errDownloadFailed"));
   }
+}
+
+function downloadTextFile(text, type, filename) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function onDownloadSvg() {
+  if (!lastEncodedPayload || !lastSvgText) return setError(t("errGenerateFirst"));
+  downloadTextFile(lastSvgText, "image/svg+xml", `${downloadBaseName()}.svg`);
+  announce("SVG downloaded.");
+}
+
+async function onCopyImage() {
+  if (!lastEncodedPayload || !navigator.clipboard || !globalThis.ClipboardItem) return;
+  try {
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    announce("Image copied to clipboard.");
+  } catch { setError("Could not copy the image in this browser."); }
+}
+
+async function onShareCode() {
+  if (!lastEncodedPayload || typeof navigator.share !== "function") return;
+  try {
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    const file = new File([blob], `${downloadBaseName()}.png`, { type: "image/png" });
+    const data = { title: "Barcode Creator Tool", text: lastEncodedPayload, files: [file] };
+    if (navigator.canShare && !navigator.canShare({ files: [file] })) delete data.files;
+    await navigator.share(data);
+  } catch (err) { if (!err || err.name !== "AbortError") setError("Sharing failed."); }
+}
+
+function resetApp() {
+  if (!confirm("Reset all generator settings and local history?")) return;
+  try { localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(HISTORY_KEY); localStorage.removeItem(SCAN_HISTORY_KEY); } catch { /* ignore */ }
+  input.value = ""; barcodeTypeSelect.value = "qr"; modeSelect.value = "url"; shapeSelect.value = "square";
+  sizeInput.value = "4"; sizeSlider.value = "4"; errorCorrectionSelect.value = "auto"; quietZoneInput.value = "4";
+  foregroundInput.value = "#000000"; backgroundInput.value = "#ffffff"; chkLogo.checked = false; chkShorten.checked = false;
+  lastEncodedPayload = null; lastSvgText = ""; preview.classList.add("hidden"); setError("");
+  renderStructuredFields(); syncQrSizeUi(); syncLogoInputs(false); syncBarcodeTypeUi(); renderHistory(); renderScanHistory(); announce("Settings reset.");
 }
 
 async function onDownloadPdf() {
@@ -1952,6 +2174,9 @@ async function startScanner() {
       video: { facingMode: { ideal: "environment" } },
       audio: false,
     });
+    const videoTrack = scannerStream.getVideoTracks()[0];
+    const capabilities = videoTrack && typeof videoTrack.getCapabilities === "function" ? videoTrack.getCapabilities() : {};
+    if (scannerTorchBtn) scannerTorchBtn.hidden = !capabilities.torch;
     scannerVideo.srcObject = scannerStream;
     await scannerVideo.play().catch(() => {
       /* play() can reject on some autoplay policies; the stream still flows */
@@ -2072,8 +2297,10 @@ function handleScanResult(detected) {
   const value = (detected && detected.rawValue) || "";
   const format = (detected && detected.format) || "";
 
-  // Stop the camera promptly; user can re-start with "Scan again".
-  stopScanner({ keepResult: true });
+  const signature = `${format}:${value}`;
+  if (signature === lastScanSignature && Date.now() - lastScanAt < 1800) return;
+  lastScanSignature = signature; lastScanAt = Date.now();
+  if (!scannerContinuous || !scannerContinuous.checked) stopScanner({ keepResult: true });
 
   if (scannerResultText) scannerResultText.textContent = value;
   if (scannerResultFormat) scannerResultFormat.textContent = formatLabelForScan(format);
@@ -2088,11 +2315,30 @@ function handleScanResult(detected) {
   }
   if (scannerResult) scannerResult.classList.remove("is-hidden");
   setScannerStatus(t("scannerStopped"));
-  if (value) playScanSuccessBell();
+  if (value && (!scannerSound || scannerSound.checked)) playScanSuccessBell();
+  if (value) rememberScan(value, format);
 
-  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+  if ((!scannerVibrate || scannerVibrate.checked) && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     try { navigator.vibrate(80); } catch { /* ignore */ }
   }
+}
+
+function rememberScan(value, format) {
+  const items = storageRead(SCAN_HISTORY_KEY, []).filter((item) => item.value !== value);
+  items.unshift({ value, format, time: Date.now() }); storageWrite(SCAN_HISTORY_KEY, items.slice(0, 25)); renderScanHistory();
+}
+
+function renderScanHistory() {
+  if (!scanHistoryEl) return;
+  const items = storageRead(SCAN_HISTORY_KEY, []);
+  scanHistoryEl.innerHTML = items.length ? items.map((item, i) => `<div class="history-item"><button type="button" class="btn-secondary" data-scan-history="${i}">${escapeHtml(item.value)}</button><small>${escapeHtml(formatLabelForScan(item.format))}</small></div>`).join("") : "<small>No scans yet.</small>";
+  scanHistoryEl.querySelectorAll("[data-scan-history]").forEach((btn) => btn.addEventListener("click", () => { const item = items[Number(btn.dataset.scanHistory)]; barcodeTypeSelect.value = "qr"; modeSelect.value = isHttpLink(item.value) ? "url" : "text"; input.value = item.value; syncBarcodeTypeUi(); void onGenerate(); }));
+}
+
+async function toggleTorch() {
+  const track = scannerStream && scannerStream.getVideoTracks()[0]; if (!track) return;
+  const active = scannerTorchBtn.dataset.active === "true";
+  try { await track.applyConstraints({ advanced: [{ torch: !active }] }); scannerTorchBtn.dataset.active = String(!active); scannerTorchBtn.textContent = !active ? "Torch off" : "Torch"; } catch { setScannerStatus("Torch is unavailable on this camera.", "error"); }
 }
 
 async function onScannerCopy() {
@@ -2171,6 +2417,13 @@ if (scannerStartBtn) scannerStartBtn.addEventListener("click", () => { void star
 if (scannerStopBtn) scannerStopBtn.addEventListener("click", () => { stopScanner(); });
 if (scannerAgainBtn) scannerAgainBtn.addEventListener("click", () => { void startScanner(); });
 if (scannerCopyBtn) scannerCopyBtn.addEventListener("click", () => { void onScannerCopy(); });
+if (scannerTorchBtn) scannerTorchBtn.addEventListener("click", () => { void toggleTorch(); });
+if (scannerOpenLink) scannerOpenLink.addEventListener("click", (event) => {
+  const href = scannerOpenLink.href;
+  if (!href) return;
+  const host = new URL(href).hostname;
+  if (!confirm(`Open ${host}?\n\n${href}`)) event.preventDefault();
+});
 
 // Topbar shortcut: jump straight to scanner mode. Dispatch a real
 // "change" event so the existing barcodeTypeSelect handler runs (which
@@ -2206,9 +2459,17 @@ btnDl.addEventListener("click", onDownload);
 btnPdf.addEventListener("click", () => {
   void onDownloadPdf();
 });
+if (btnSvg) btnSvg.addEventListener("click", onDownloadSvg);
+if (btnCopyImage) btnCopyImage.addEventListener("click", () => { void onCopyImage(); });
+if (btnShare) btnShare.addEventListener("click", () => { void onShareCode(); });
+if (btnReset) btnReset.addEventListener("click", resetApp);
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void onGenerate();
 });
+
+[input, sizeInput, sizeSlider, shapeSelect, errorCorrectionSelect, quietZoneInput, foregroundInput, backgroundInput, logoSizeInput, logoUrlInput].filter(Boolean).forEach((el) => el.addEventListener("input", scheduleLivePreview));
+[chkLogo, chkShorten].filter(Boolean).forEach((el) => el.addEventListener("change", scheduleLivePreview));
+modeSelect.addEventListener("change", () => { renderStructuredFields(); syncBarcodeTypeUi(); scheduleLivePreview(); });
 
 if (calTrack) {
   calTrack.addEventListener("pointerdown", onCalibrateTrackPointerDown);
@@ -2239,8 +2500,12 @@ window.addEventListener("offline", updateOnlineState);
 registerServiceWorker();
 initTheme();
 initLanguage();
+restoreSettings();
 syncCalibrationUi();
 syncQrSizeUi();
 syncLogoInputs(false);
 syncLogoSizeLabel();
 syncBarcodeTypeUi();
+renderStructuredFields();
+renderHistory();
+renderScanHistory();
