@@ -795,7 +795,7 @@ let cmPxFactor = loadCalibration();
 function loadCalibration() {
   try {
     const v = parseFloat(localStorage.getItem(CAL_KEY));
-    if (Number.isFinite(v) && v >= 4 && v <= 1000) return v;
+    if (Number.isFinite(v) && v >= 10 && v <= 200) return v;
   } catch {
     /* ignore */
   }
@@ -1284,10 +1284,10 @@ function applyPreviewDisplaySize() {
 }
 
 function calibrationBounds() {
-  if (!calTrack) return { min: 20, max: 5000 };
+  if (!calTrack) return { min: 80, max: 900 };
   return {
-    min: parseInt(calTrack.getAttribute("aria-valuemin") || "20", 10),
-    max: parseInt(calTrack.getAttribute("aria-valuemax") || "5000", 10),
+    min: parseInt(calTrack.getAttribute("aria-valuemin") || "80", 10),
+    max: parseInt(calTrack.getAttribute("aria-valuemax") || "900", 10),
   };
 }
 
@@ -1301,7 +1301,6 @@ function syncCalibrationUi(explicitPx) {
   const { min, max } = calibrationBounds();
   const px = Math.max(min, Math.min(max, explicitPx ?? currentCalibrationPx()));
   calBar.style.width = `${px}px`;
-  calTrack.style.width = `${Math.max(calTrack.parentElement.clientWidth, px + 24)}px`;
   calTrack.setAttribute("aria-valuenow", String(px));
 }
 
@@ -1343,10 +1342,6 @@ function onCalibrateTrackPointerDown(e) {
 
 function onCalibrateTrackPointerMove(e) {
   if (calibratingPointerId !== e.pointerId) return;
-  const viewport = calTrack.parentElement;
-  const bounds = viewport.getBoundingClientRect();
-  if (e.clientX > bounds.right - 24) viewport.scrollLeft += 16;
-  else if (e.clientX < bounds.left + 24) viewport.scrollLeft -= 16;
   applyCalibrationPx(pointerToCalibrationPx(e.clientX));
 }
 
@@ -2930,11 +2925,6 @@ centreShapeSelect.addEventListener("input", scheduleLivePreview);
 modeSelect.addEventListener("change", () => { renderStructuredFields(); syncBarcodeTypeUi(); scheduleLivePreview(); });
 
 if (calTrack) {
-  document.getElementById("calibration-decrease").addEventListener("click", () => applyCalibrationPx(currentCalibrationPx() - 10));
-  document.getElementById("calibration-increase").addEventListener("click", () => {
-    applyCalibrationPx(currentCalibrationPx() + 10);
-    calTrack.parentElement.scrollLeft = Math.max(0, currentCalibrationPx() - calTrack.parentElement.clientWidth + 24);
-  });
   calTrack.addEventListener("pointerdown", onCalibrateTrackPointerDown);
   calTrack.addEventListener("pointermove", onCalibrateTrackPointerMove);
   calTrack.addEventListener("pointerup", onCalibrateTrackPointerUp);

@@ -808,8 +808,6 @@ button:not(.theme-btn):not(.lang-btn):disabled {
      ruler origin the user lines up with 0 cm. */
 }
 
-.calibration-scroll { overflow-x: auto; overflow-y: hidden; padding-block: 5px; width: 100%; }
-.calibration-adjustments { display: flex; gap: 8px; margin-top: 6px; }
 
 .calibrate-track:focus-visible {
   outline: 2px solid var(--focus);
@@ -817,6 +815,7 @@ button:not(.theme-btn):not(.lang-btn):disabled {
 }
 
 .calibrate-bar {
+  max-width: 100%;
   position: absolute;
   left: 0;
   top: 0;
