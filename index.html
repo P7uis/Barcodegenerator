@@ -231,6 +231,8 @@
         <section class="advanced qr-only generator-only" aria-labelledby="qr-appearance-heading">
             <h2 id="qr-appearance-heading" class="appearance-heading">QR quality and appearance</h2>
             <div class="field-grid advanced-grid">
+              <div class="field"><label for="foreground-color">QR dot colour</label><input id="foreground-color" type="color" value="#000000"></div>
+              <div class="field"><label for="background-color">Background colour</label><input id="background-color" type="color" value="#ffffff"></div>
               <div class="field">
                 <label id="shape-label" for="shape-select">Dot shape</label>
                 <select id="shape-select">
@@ -251,8 +253,6 @@
                 </select>
               </div>
               <div class="field"><label for="quiet-zone">Quiet zone (modules)</label><input id="quiet-zone" type="number" min="0" max="12" step="1" value="4"></div>
-              <div class="field"><label for="foreground-color">Foreground</label><input id="foreground-color" type="color" value="#000000"></div>
-              <div class="field"><label for="background-color">Background</label><input id="background-color" type="color" value="#ffffff"></div>
             </div>
         </section>
         <div id="scanner-stage" class="scanner-stage scanner-only is-hidden" aria-label="Live camera feed">
@@ -293,7 +293,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.4.0</span>
+    <span id="app-footer-version" class="app-footer-version">v2.4.1</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>

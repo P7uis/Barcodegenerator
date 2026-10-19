@@ -552,6 +552,13 @@ label {
 .history-panel summary { cursor: pointer; color: var(--text); font-weight: 650; }
 .appearance-heading { margin: 0; color: var(--text); font-size: 1rem; font-weight: 650; }
 .advanced-grid { margin-top: 10px; }
+.advanced-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.advanced-grid .field { min-width: 0; }
+.advanced-grid input[type="color"] { width: 100%; }
+@media (max-width: 480px) {
+  .advanced-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .advanced-grid .field:nth-child(3) { grid-column: 1 / -1; }
+}
 .preview-column > .advanced { flex: 0 0 auto; max-height: 45dvh; overflow-y: auto; }
 .structured-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: 9px; }
 .structured-fields .field { margin: 0; }

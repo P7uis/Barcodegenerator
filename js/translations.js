@@ -2,6 +2,8 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["QR dot colour", "Kleur van de QR-blokjes", "Farbe der QR-Module"],
+    ["Background colour", "Achtergrondkleur", "Hintergrundfarbe"],
     ["Dot shape", "Vorm van de blokjes", "Form der Module"],
     ["Corner shape", "Vorm van de hoekmarkeringen", "Form der Eckmarkierungen"],
     ["Square", "Vierkant", "Quadratisch"],
