@@ -878,6 +878,10 @@ button:not(.theme-btn):not(.lang-btn):disabled {
   overflow: hidden;
 }
 
+.preview { overflow: auto; justify-content: flex-start; align-items: flex-start; }
+.preview canvas { flex: 0 0 auto; margin: auto; max-width: none; max-height: none; }
+#preview-size-hint { color: var(--muted); margin-top: 6px; line-height: 1.4; }
+
 .preview.hidden canvas {
   visibility: hidden;
 }
@@ -892,8 +896,6 @@ button:not(.theme-btn):not(.lang-btn):disabled {
      than the content-box, which makes the on-screen size off by exactly
      the padding amount). The preview's own border + padding already
      provides the visual "card" framing. */
-  max-width: 100%;
-  max-height: 100%;
 }
 
 .hint {

@@ -2,6 +2,7 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["Actual-size preview. Scroll to see the rest of the code.", "Voorbeeld op ware grootte. Scroll om de rest van de code te bekijken.", "Vorschau in Originalgröße. Scrolle, um den restlichen Code zu sehen."],
     ["Shorten calibration bar", "Kalibratiebalk korter maken", "Kalibrierungsbalken verkürzen"],
     ["Lengthen calibration bar", "Kalibratiebalk langer maken", "Kalibrierungsbalken verlängern"],
     ["Hand-drawn", "Handgetekend", "Handgezeichnet"],

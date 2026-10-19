@@ -1275,9 +1275,12 @@ function applyPreviewDisplaySize() {
   const desiredH = desiredW * aspect;
   if (desiredW <= 0 || desiredH <= 0) return;
 
-  const scale = Math.min(1, availW / desiredW, availH / desiredH);
-  canvas.style.width = `${desiredW * scale}px`;
-  canvas.style.height = `${desiredH * scale}px`;
+  // Never shrink a calibrated preview to fit: that makes calibration appear
+  // capped on small screens. The preview viewport scrolls instead.
+  canvas.style.width = `${desiredW}px`;
+  canvas.style.height = `${desiredH}px`;
+  const sizeHint = document.getElementById("preview-size-hint");
+  if (sizeHint) sizeHint.hidden = desiredW <= availW && desiredH <= availH;
 }
 
 function calibrationBounds() {

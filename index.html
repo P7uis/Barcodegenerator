@@ -29,7 +29,7 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./css/app.css?v=2.8.2" />
+  <link rel="stylesheet" href="./css/app.css?v=2.8.3" />
 </head>
 <body>
   <div class="chrome-stack" id="chromeStack">
@@ -234,6 +234,7 @@
         <div class="preview generator-only hidden" id="preview">
           <canvas id="qr-canvas" width="256" height="256" aria-label="QR code preview"></canvas>
         </div>
+        <small id="preview-size-hint" class="generator-only" hidden>Actual-size preview. Scroll to see the rest of the code.</small>
         <section class="advanced qr-only generator-only" aria-labelledby="qr-appearance-heading">
             <h2 id="qr-appearance-heading" class="appearance-heading">QR quality and appearance</h2>
             <div class="field-grid advanced-grid">
@@ -306,7 +307,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.8.2</span>
+    <span id="app-footer-version" class="app-footer-version">v2.8.3</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
@@ -316,7 +317,7 @@
   <script src="./vendor/qrcode.global.js"></script>
   <script src="./vendor/jsbarcode.umd.min.js"></script>
   <script src="./vendor/jspdf.umd.min.js"></script>
-  <script src="./js/translations.js?v=2.8.2"></script>
-  <script src="./js/app-browser.js?v=2.8.2"></script>
+  <script src="./js/translations.js?v=2.8.3"></script>
+  <script src="./js/app-browser.js?v=2.8.3"></script>
 </body>
 </html>
