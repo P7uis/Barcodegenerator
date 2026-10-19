@@ -336,35 +336,59 @@ function isInFinder(x, y, size) {
   return (x < 7 && y < 7) || (x >= size - 7 && y < 7) || (x < 7 && y >= size - 7);
 }
 
-function drawModule(ctx, px, py, unit, shape) {
-  if (shape === "dots") {
-    fillCircle(ctx, px + unit / 2, py + unit / 2, unit * 0.38);
-    return;
+// One set of vector paths is used by both canvas and SVG exports.
+function qrShapePath(shape, x, y, size) {
+  const right = x + size, bottom = y + size, midX = x + size / 2, midY = y + size / 2;
+  if (shape === "circle" || shape === "dots") {
+    const r = size * (shape === "dots" ? .38 : .5);
+    return `M${midX - r} ${midY}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0Z`;
   }
-  if (shape === "rounded") {
-    fillRoundRect(ctx, px, py, unit, unit, unit * 0.32);
-    return;
+  if (shape === "diamond") return `M${midX} ${y}L${right} ${midY}L${midX} ${bottom}L${x} ${midY}Z`;
+  if (shape === "beveled") {
+    const c = size * .22;
+    return `M${x + c} ${y}H${right - c}L${right} ${y + c}V${bottom - c}L${right - c} ${bottom}H${x + c}L${x} ${bottom - c}V${y + c}Z`;
   }
-  ctx.fillRect(px, py, unit, unit);
+  if (shape === "leaf" || shape === "leaf-reverse") {
+    return shape === "leaf"
+      ? `M${x} ${y}H${midX}Q${right} ${y} ${right} ${midY}V${bottom}H${midX}Q${x} ${bottom} ${x} ${midY}Z`
+      : `M${midX} ${y}H${right}V${midY}Q${right} ${bottom} ${midX} ${bottom}H${x}V${midY}Q${x} ${y} ${midX} ${y}Z`;
+  }
+  if (shape === "dot-grid") {
+    let path = "";
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) path += qrShapePath("circle", x + col * size / 3, y + row * size / 3, size * .29);
+    return path;
+  }
+  if (shape === "horizontal" || shape === "vertical") {
+    // Body bars fill the long axis and leave a small gap across the short axis.
+    const horizontal = shape === "horizontal", gap = size * .14;
+    const l = x + (horizontal ? 0 : gap), t = y + (horizontal ? gap : 0);
+    const w = size - (horizontal ? 0 : gap * 2), h = size - (horizontal ? gap * 2 : 0), r = Math.min(w, h) / 2;
+    return `M${l + r} ${t}H${l + w - r}Q${l + w} ${t} ${l + w} ${t + r}V${t + h - r}Q${l + w} ${t + h} ${l + w - r} ${t + h}H${l + r}Q${l} ${t + h} ${l} ${t + h - r}V${t + r}Q${l} ${t} ${l + r} ${t}Z`;
+  }
+  if (shape === "horizontal-bars" || shape === "vertical-bars") {
+    let path = "";
+    for (let i = 0; i < 3; i++) {
+      const horizontal = shape === "horizontal-bars";
+      const l = x + (horizontal ? 0 : i * size / 3), t = y + (horizontal ? i * size / 3 : 0);
+      const w = horizontal ? size : size * .29, h = horizontal ? size * .29 : size;
+      path += `M${l} ${t}h${w}v${h}h${-w}Z`;
+    }
+    return path;
+  }
+  const r = size * (shape === "extra-rounded" ? .42 : shape === "rounded" ? .24 : 0);
+  return `M${x + r} ${y}H${right - r}Q${right} ${y} ${right} ${y + r}V${bottom - r}Q${right} ${bottom} ${right - r} ${bottom}H${x + r}Q${x} ${bottom} ${x} ${bottom - r}V${y + r}Q${x} ${y} ${x + r} ${y}Z`;
 }
 
-function drawFinder(ctx, left, top, unit, finderShape, background) {
-  const outer = unit * 7;
-  const innerCut = unit * 5;
-  const center = unit * 3;
-  const outerRadius = finderShape === "circle" ? outer / 2 : finderShape === "square" ? 0 : unit * 1.2;
-  const centerRadius = finderShape === "circle" ? center / 2 : finderShape === "square" ? 0 : unit * 0.9;
-  const innerRadius = finderShape === "circle" ? innerCut / 2 : Math.max(0, outerRadius - unit * 0.45);
+function drawModule(ctx, px, py, unit, shape) {
+  ctx.fill(new Path2D(qrShapePath(shape, px, py, unit)));
+}
 
-  // Paint the inner ring with opaque white instead of erasing it via
-  // destination-out, otherwise the saved PNG ends up with transparent rings
-  // where the white quiet-zone of each finder square should be.
-  fillRoundRect(ctx, left, top, outer, outer, outerRadius);
-  ctx.save();
-  ctx.fillStyle = background;
-  fillRoundRect(ctx, left + unit, top + unit, innerCut, innerCut, innerRadius);
+function drawFinder(ctx, left, top, unit, finderShape, background, centreShape = "square") {
+  ctx.fill(new Path2D(qrShapePath(finderShape, left, top, unit * 7)));
+  ctx.save(); ctx.fillStyle = background;
+  ctx.fill(new Path2D(qrShapePath(finderShape, left + unit, top + unit, unit * 5)));
   ctx.restore();
-  fillRoundRect(ctx, left + unit * 2, top + unit * 2, center, center, centerRadius);
+  ctx.fill(new Path2D(qrShapePath(centreShape, left + unit * 2, top + unit * 2, unit * 3)));
 }
 
 function createLogoMask(canvasEl, img, logoSidePx) {
@@ -403,7 +427,7 @@ function rectIntersectsLogoMask(mask, left, top, right, bottom) {
   return false;
 }
 
-function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSidePx, foreground, background, cornerShape = "square") {
+function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSidePx, foreground, background, cornerShape = "square", centreShape = "square") {
   const modules = qrData.modules;
   const size = modules.size;
   const fullCount = size + margin * 2;
@@ -430,9 +454,9 @@ function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSi
   }
 
   const finderShape = cornerShape;
-  drawFinder(ctx, margin * unit, margin * unit, unit, finderShape, background);
-  drawFinder(ctx, (margin + size - 7) * unit, margin * unit, unit, finderShape, background);
-  drawFinder(ctx, margin * unit, (margin + size - 7) * unit, unit, finderShape, background);
+  drawFinder(ctx, margin * unit, margin * unit, unit, finderShape, background, centreShape);
+  drawFinder(ctx, (margin + size - 7) * unit, margin * unit, unit, finderShape, background, centreShape);
+  drawFinder(ctx, margin * unit, (margin + size - 7) * unit, unit, finderShape, background, centreShape);
 }
 
 function renderQrToCanvas(canvasEl, text, QRCode, options = {}) {
@@ -441,7 +465,7 @@ function renderQrToCanvas(canvasEl, text, QRCode, options = {}) {
       const logo = options.logoImage && options.logoImage.complete ? options.logoImage : null;
       const qrData = QRCode.create(text, { errorCorrectionLevel: logo ? "H" : (options.errorCorrectionLevel || "M") });
       const logoSidePx = logo ? options.logoSizePx || Math.round((options.width || 256) * 0.22) : 0;
-      paintStyledQr(canvasEl, qrData, options.width || 256, Number.isFinite(options.margin) ? options.margin : 4, options.moduleShape || "square", logo, logoSidePx, options.foreground || "#000000", options.background || "#ffffff", options.cornerShape || "square");
+      paintStyledQr(canvasEl, qrData, options.width || 256, Number.isFinite(options.margin) ? options.margin : 4, options.moduleShape || "square", logo, logoSidePx, options.foreground || "#000000", options.background || "#ffffff", options.cornerShape || "square", options.centreShape || "square");
       if (logo && logo.naturalWidth > 0) {
         drawCenterLogo(canvasEl, logo, logoSidePx);
       }
@@ -558,6 +582,7 @@ const barcodeTypeSelect = document.getElementById("barcode-type");
 const modeSelect = document.getElementById("mode-select");
 const shapeSelect = document.getElementById("shape-select");
 const cornerShapeSelect = document.getElementById("corner-shape");
+const centreShapeSelect = document.getElementById("centre-shape");
 const langButtons = Array.from(document.querySelectorAll(".lang-switcher [data-lang]"));
 const chkShorten = document.getElementById("opt-shorten");
 const chkLogo = document.getElementById("opt-logo");
@@ -1108,6 +1133,8 @@ function setBusy(busy) {
   modeSelect.disabled = busy;
   shapeSelect.disabled = busy;
   cornerShapeSelect.disabled = busy;
+  centreShapeSelect.disabled = busy;
+  document.querySelectorAll(".shape-picker-toggle").forEach((button) => { button.disabled = busy; });
   for (const btn of langButtons) btn.disabled = busy;
   for (const btn of themeButtons) btn.disabled = busy;
   syncBarcodeTypeUi();
@@ -1882,6 +1909,93 @@ function syncWifiPassword() {
   password.closest(".field").classList.toggle("is-hidden", open);
 }
 
+function shapeThumbnail(shape, kind) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 9 9"); svg.setAttribute("aria-hidden", "true");
+  let path = "";
+  if (kind === "frame") {
+    path = qrShapePath(shape, 1, 1, 7) + qrShapePath(shape, 2, 2, 5);
+  } else if (kind === "centre") path = qrShapePath(shape, 1.5, 1.5, 6);
+  else {
+    for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) path += qrShapePath(shape, 1 + x * 2.4, 1 + y * 2.4, 2);
+  }
+  const element = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  element.setAttribute("d", path); element.setAttribute("fill", "currentColor");
+  if (kind === "frame") element.setAttribute("fill-rule", "evenodd");
+  svg.appendChild(element); return svg;
+}
+
+function initShapePickers() {
+  const names = { square: "Square", rounded: "Rounded", dots: "Dots", circle: "Circular", "extra-rounded": "Extra rounded", diamond: "Diamond", beveled: "Cut corners", leaf: "Leaf", "leaf-reverse": "Reverse leaf", horizontal: "Horizontal bars", vertical: "Vertical bars", "dot-grid": "Nine dots", "horizontal-bars": "Three horizontal bars", "vertical-bars": "Three vertical bars" };
+  for (const [select, kind] of [[shapeSelect, "body"], [cornerShapeSelect, "frame"], [centreShapeSelect, "centre"]]) {
+    const picker = document.createElement("div"); picker.className = "shape-picker";
+    const button = document.createElement("button"); button.type = "button"; button.className = "shape-picker-toggle";
+    button.id = `${select.id}-picker`; button.setAttribute("aria-haspopup", "listbox"); button.setAttribute("aria-expanded", "false");
+    const label = document.querySelector(`label[for="${select.id}"]`);
+    label.htmlFor = button.id; label.id ||= `${select.id}-label`;
+    const menu = document.createElement("div"); menu.className = "shape-menu"; menu.id = `${select.id}-choices`;
+    menu.setAttribute("role", "listbox"); menu.setAttribute("aria-labelledby", label.id); menu.setAttribute("popover", "auto");
+    button.setAttribute("aria-controls", menu.id);
+    const nativePopover = typeof menu.showPopover === "function";
+    if (!nativePopover) menu.hidden = true;
+    let open = false;
+    const choices = [];
+    function close(focus = false) {
+      if (nativePopover && menu.matches(":popover-open")) menu.hidePopover();
+      else if (!nativePopover) menu.hidden = true;
+      open = false; button.setAttribute("aria-expanded", "false"); if (focus) button.focus();
+    }
+    function refresh() {
+      const name = document.createElement("span"); name.textContent = names[select.value] || "Square";
+      button.replaceChildren(name, shapeThumbnail(select.value, kind));
+      choices.forEach((choice) => choice.setAttribute("aria-selected", String(choice.dataset.value === select.value)));
+      if (window.refreshUiTranslations) window.refreshUiTranslations();
+    }
+    for (const option of select.options) {
+      const choice = document.createElement("button"); choice.type = "button"; choice.className = "shape-option";
+      choice.setAttribute("role", "option"); choice.tabIndex = -1; choice.dataset.value = option.value;
+      const text = document.createElement("span"); text.textContent = names[option.value];
+      choice.append(text, shapeThumbnail(option.value, kind));
+      choice.addEventListener("click", () => {
+        if (select.disabled) return;
+        select.value = option.value; refresh(); close(true); select.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      menu.appendChild(choice); choices.push(choice);
+    }
+    function show() {
+      if (select.disabled) return;
+      const rect = button.getBoundingClientRect();
+      menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 268))}px`;
+      menu.style.width = `${Math.max(250, Math.min(rect.width, window.innerWidth - 16))}px`;
+      const below = window.innerHeight - rect.bottom - 12;
+      const above = rect.top - 12;
+      const height = Math.min(360, Math.max(below, above));
+      menu.style.maxHeight = `${height}px`;
+      menu.style.top = below >= Math.min(260, above) ? `${rect.bottom + 4}px` : `${Math.max(8, rect.top - height - 4)}px`;
+      if (nativePopover) menu.showPopover(); else menu.hidden = false;
+      open = true; button.setAttribute("aria-expanded", "true");
+      (choices.find((choice) => choice.dataset.value === select.value) || choices[0]).focus();
+    }
+    button.addEventListener("click", () => { if (open) close(); else show(); });
+    button.addEventListener("keydown", (e) => { if (["ArrowDown", "ArrowUp"].includes(e.key)) { e.preventDefault(); show(); } });
+    menu.addEventListener("keydown", (e) => {
+      let index = choices.indexOf(document.activeElement);
+      if (e.key === "Escape") { e.preventDefault(); close(true); }
+      else if (e.key === "Tab") close();
+      else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+        e.preventDefault(); index = e.key === "Home" ? 0 : e.key === "End" ? choices.length - 1 : (index + (e.key === "ArrowDown" ? 1 : -1) + choices.length) % choices.length;
+        choices[index].focus();
+      }
+    });
+    menu.addEventListener("toggle", (event) => { open = event.newState === "open"; button.setAttribute("aria-expanded", String(open)); });
+    document.addEventListener("pointerdown", (event) => { if (open && !menu.contains(event.target) && !button.contains(event.target)) close(); });
+    window.addEventListener("resize", () => close());
+    select.hidden = true; select.after(picker); picker.append(button); document.body.append(menu);
+    select.addEventListener("change", refresh); picker.addEventListener("refresh-shape", refresh);
+    refresh();
+  }
+}
+
 function selectedEcc(hasLogo) {
   if (hasLogo) return "H";
   const value = errorCorrectionSelect ? errorCorrectionSelect.value : "auto";
@@ -1893,19 +2007,17 @@ function colourContrast(a, b) {
   const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
 }
 
-function makeQrSvg(qrData, margin, foreground, background, shape = "square", cornerShape = "square") {
+function makeQrSvg(qrData, margin, foreground, background, shape = "square", cornerShape = "square", centreShape = "square") {
   const size = qrData.modules.size;
   const total = size + margin * 2;
   let content = "";
   for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
     if (!isDark(qrData.modules, x, y) || isInFinder(x, y, size)) continue;
-    content += shape === "dots"
-      ? `<circle cx="${x + margin + .5}" cy="${y + margin + .5}" r="0.38" fill="${foreground}"/>`
-      : `<rect x="${x + margin}" y="${y + margin}" width="1" height="1" rx="${shape === "rounded" ? .32 : 0}" fill="${foreground}"/>`;
+    content += `<path d="${qrShapePath(shape, x + margin, y + margin, 1)}" fill="${foreground}"/>`;
   }
   for (const [x, y] of [[margin, margin], [margin + size - 7, margin], [margin, margin + size - 7]]) {
-    for (const [offset, width, radius, colour] of [[0, 7, cornerShape === "circle" ? 3.5 : cornerShape === "rounded" ? 1.2 : 0, foreground], [1, 5, cornerShape === "circle" ? 2.5 : cornerShape === "rounded" ? .75 : 0, background], [2, 3, cornerShape === "circle" ? 1.5 : cornerShape === "rounded" ? .9 : 0, foreground]]) {
-      content += `<rect x="${x + offset}" y="${y + offset}" width="${width}" height="${width}" rx="${radius}" fill="${colour}"/>`;
+    for (const [offset, width, style, colour] of [[0, 7, cornerShape, foreground], [1, 5, cornerShape, background], [2, 3, centreShape, foreground]]) {
+      content += `<path d="${qrShapePath(style, x + offset, y + offset, width)}" fill="${colour}"/>`;
     }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}"><rect width="100%" height="100%" fill="${background}"/>${content}</svg>`;
@@ -1929,7 +2041,7 @@ function rememberGeneration(payload, type = currentBarcodeType) {
 }
 
 function persistSettings() {
-  storageWrite(SETTINGS_KEY, { barcodeType: barcodeTypeSelect.value, mode: modeSelect.value, shape: shapeSelect.value, cornerShape: cornerShapeSelect.value, size: sizeInput.value, ecc: errorCorrectionSelect.value, quiet: quietZoneInput.value, foreground: foregroundInput.value, background: backgroundInput.value });
+  storageWrite(SETTINGS_KEY, { barcodeType: barcodeTypeSelect.value, mode: modeSelect.value, shape: shapeSelect.value, cornerShape: cornerShapeSelect.value, centreShape: centreShapeSelect.value, size: sizeInput.value, ecc: errorCorrectionSelect.value, quiet: quietZoneInput.value, foreground: foregroundInput.value, background: backgroundInput.value });
 }
 
 function restoreSettings() {
@@ -1938,6 +2050,7 @@ function restoreSettings() {
   if (s.mode) modeSelect.value = s.mode;
   if (s.shape) shapeSelect.value = s.shape;
   if (s.cornerShape) cornerShapeSelect.value = s.cornerShape;
+  if (s.centreShape) centreShapeSelect.value = s.centreShape;
   if (s.size) sizeInput.value = s.size;
   if (s.ecc) errorCorrectionSelect.value = s.ecc;
   if (s.quiet) quietZoneInput.value = s.quiet;
@@ -2008,8 +2121,7 @@ async function onGenerate(options = {}) {
       }
       const logoForQr = await resolveLogoForRender();
       const selectedShape = shapeSelect.value;
-      const moduleShape =
-        selectedShape === "rounded" || selectedShape === "dots" ? selectedShape : "square";
+      const moduleShape = selectedShape || "square";
       const QRCode = await loadQrModule();
       const ecc = selectedEcc(Boolean(logoForQr));
       const margin = Math.max(0, Math.min(12, Number.parseInt(quietZoneInput.value, 10) || 0));
@@ -2028,11 +2140,12 @@ async function onGenerate(options = {}) {
         logoSizePx: logoForQr ? Math.round(getLogoSizeCm() * PX_PER_CM) : 0,
         moduleShape,
         cornerShape: cornerShapeSelect.value,
+        centreShape: centreShapeSelect.value,
         errorCorrectionLevel: ecc,
         foreground,
         background,
       });
-      lastSvgText = makeQrSvg(qrData, margin, foreground, background, moduleShape, cornerShapeSelect.value);
+      lastSvgText = makeQrSvg(qrData, margin, foreground, background, moduleShape, cornerShapeSelect.value, centreShapeSelect.value);
       const moduleMm = (qrSize.cm * 10) / (qrData.modules.size + margin * 2);
       lastQrMeta = { modules: qrData.modules.size, margin, ecc, moduleMm, contrast: colourContrast(foreground, background) };
       lastCanvasAspect = 1;
@@ -2164,7 +2277,8 @@ function resetApp() {
   if (!confirm(window.localizeUi("Reset all generator settings and local history?"))) return;
   btnSaveRecent.disabled = true;
   try { localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(HISTORY_KEY); localStorage.removeItem(SCAN_HISTORY_KEY); } catch { /* ignore */ }
-  input.value = ""; shapeSelect.value = "square"; cornerShapeSelect.value = "square";
+  input.value = ""; shapeSelect.value = "square"; cornerShapeSelect.value = "square"; centreShapeSelect.value = "square";
+  document.querySelectorAll(".shape-picker").forEach((picker) => picker.dispatchEvent(new Event("refresh-shape")));
   // Rebuild the current category to clear its fields and map pin without
   // changing the user's selected barcode type or content category.
   delete structuredFields.dataset.mode;
@@ -2732,6 +2846,7 @@ input.addEventListener("keydown", (e) => {
 
 [input, sizeInput, sizeSlider, shapeSelect, errorCorrectionSelect, quietZoneInput, foregroundInput, backgroundInput, logoSizeInput, logoUrlInput].filter(Boolean).forEach((el) => el.addEventListener("input", scheduleLivePreview));
 cornerShapeSelect.addEventListener("input", scheduleLivePreview);
+centreShapeSelect.addEventListener("input", scheduleLivePreview);
 [chkLogo, chkShorten].filter(Boolean).forEach((el) => el.addEventListener("change", scheduleLivePreview));
 modeSelect.addEventListener("change", () => { renderStructuredFields(); syncBarcodeTypeUi(); scheduleLivePreview(); });
 
@@ -2765,6 +2880,7 @@ registerServiceWorker();
 initTheme();
 initLanguage();
 restoreSettings();
+initShapePickers();
 syncCalibrationUi();
 syncQrSizeUi();
 syncLogoInputs(false);

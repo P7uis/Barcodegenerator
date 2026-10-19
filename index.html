@@ -239,11 +239,16 @@
                   <option id="shape-opt-square" value="square">Square</option>
                   <option id="shape-opt-rounded" value="rounded">Rounded</option>
                   <option id="shape-opt-dots" value="dots">Dots</option>
+                  <option value="extra-rounded">Extra rounded</option><option value="diamond">Diamond</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="horizontal">Horizontal bars</option><option value="vertical">Vertical bars</option>
                 </select>
               </div>
               <div class="field">
-                <label for="corner-shape">Corner shape</label>
-                <select id="corner-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option></select>
+                <label for="corner-shape">Corner frame</label>
+                <select id="corner-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option><option value="extra-rounded">Extra rounded</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="leaf-reverse">Reverse leaf</option></select>
+              </div>
+              <div class="field">
+                <label for="centre-shape">Corner centre</label>
+                <select id="centre-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option><option value="extra-rounded">Extra rounded</option><option value="diamond">Diamond</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="leaf-reverse">Reverse leaf</option><option value="dot-grid">Nine dots</option><option value="horizontal-bars">Three horizontal bars</option><option value="vertical-bars">Three vertical bars</option></select>
               </div>
               <div class="field">
                 <label for="error-correction">Error correction</label>
@@ -293,7 +298,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.4.1</span>
+    <span id="app-footer-version" class="app-footer-version">v2.5.0</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>

@@ -2,6 +2,19 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["Dots", "Stippen", "Punkte"],
+    ["Corner frame", "Rand van de hoekmarkeringen", "Rahmen der Eckmarkierungen"],
+    ["Corner centre", "Midden van de hoekmarkeringen", "Mitte der Eckmarkierungen"],
+    ["Extra rounded", "Extra afgerond", "Stark abgerundet"],
+    ["Diamond", "Ruit", "Raute"],
+    ["Cut corners", "Afgeschuinde hoeken", "Abgeschrägte Ecken"],
+    ["Leaf", "Bladvorm", "Blattform"],
+    ["Reverse leaf", "Omgekeerde bladvorm", "Umgekehrte Blattform"],
+    ["Horizontal bars", "Horizontale balkjes", "Waagerechte Balken"],
+    ["Vertical bars", "Verticale balkjes", "Senkrechte Balken"],
+    ["Nine dots", "Negen stippen", "Neun Punkte"],
+    ["Three horizontal bars", "Drie horizontale balkjes", "Drei waagerechte Balken"],
+    ["Three vertical bars", "Drie verticale balkjes", "Drei senkrechte Balken"],
     ["QR dot colour", "Kleur van de QR-blokjes", "Farbe der QR-Module"],
     ["Background colour", "Achtergrondkleur", "Hintergrundfarbe"],
     ["Dot shape", "Vorm van de blokjes", "Form der Module"],

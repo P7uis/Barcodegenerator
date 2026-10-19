@@ -554,6 +554,16 @@ label {
 .advanced-grid { margin-top: 10px; }
 .advanced-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .advanced-grid .field { min-width: 0; }
+.shape-picker { min-width: 0; }
+.shape-picker-toggle, .shape-option { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; background: var(--surface); color: var(--text); text-align: left; }
+.shape-picker .shape-picker-toggle { border: 1px solid var(--border); min-height: 46px; padding: 7px 10px; font-weight: 400; }
+.shape-picker-toggle span, .shape-option span { min-width: 0; overflow-wrap: anywhere; }
+.shape-picker-toggle svg { width: 30px; height: 30px; flex: 0 0 30px; }
+.shape-menu { position: fixed; inset: auto; margin: 0; padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); overflow-y: auto; z-index: 100001; }
+.shape-option svg { width: 44px; height: 44px; flex: 0 0 44px; }
+.shape-menu .shape-option { padding: 5px 10px; min-height: 54px; font-weight: 400; border-radius: 6px; }
+.shape-option[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.shape-option:hover, .shape-option:focus-visible { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); outline: 2px solid var(--accent); outline-offset: -2px; }
 .advanced-grid input[type="color"] { width: 100%; }
 @media (max-width: 480px) {
   .advanced-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
