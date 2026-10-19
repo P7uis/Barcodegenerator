@@ -1837,7 +1837,11 @@ function initLocationMap() {
   });
   map.addEventListener("pointercancel", (e) => finishDrag(e, true));
   map.addEventListener("lostpointercapture", (e) => finishDrag(e, true));
-  wrapper.querySelectorAll("[data-map-zoom]").forEach((button) => button.addEventListener("click", () => { zoom = Math.max(1, Math.min(19, zoom + Number(button.dataset.mapZoom))); draw(); }));
+  wrapper.querySelectorAll("[data-map-zoom]").forEach((button) => button.addEventListener("click", () => {
+    if (selected) centre = { ...selected };
+    zoom = Math.max(1, Math.min(19, zoom + Number(button.dataset.mapZoom)));
+    draw();
+  }));
   map.addEventListener("keydown", (e) => {
     if (e.target !== map) return;
     const moves = { ArrowLeft: [-100, 0], ArrowRight: [100, 0], ArrowUp: [0, -100], ArrowDown: [0, 100] };
