@@ -2,6 +2,8 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["Save to Recents", "Opslaan bij recente codes", "Unter den letzten Codes speichern"],
+    ["Saved to Recents.", "Opgeslagen bij recente codes.", "Unter den letzten Codes gespeichert."],
     ["Back to generator", "Terug naar de generator", "Zurück zum Generator"],
     ["Camera", "Camera", "Kamera"],
     ["Default camera", "Standaardcamera", "Standardkamera"],

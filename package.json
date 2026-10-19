@@ -1,6 +1,6 @@
 {
   "name": "barcode-creator-tool",
-  "version": "2.2.8",
+  "version": "2.3.0",
   "private": true,
   "type": "module",
   "scripts": {

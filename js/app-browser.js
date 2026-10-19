@@ -571,6 +571,7 @@ const btnPdf = document.getElementById("download-pdf");
 const btnSvg = document.getElementById("download-svg");
 const btnCopyImage = document.getElementById("copy-image");
 const btnShare = document.getElementById("share-code");
+const btnSaveRecent = document.getElementById("save-recent");
 const btnReset = document.getElementById("reset-app");
 const structuredFields = document.getElementById("structured-fields");
 const errorCorrectionSelect = document.getElementById("error-correction");
@@ -1906,9 +1907,9 @@ function renderHistory() {
   generationHistoryEl.querySelectorAll("[data-history]").forEach((btn) => btn.addEventListener("click", () => { const item = items[Number(btn.dataset.history)]; barcodeTypeSelect.value = item.type; syncBarcodeTypeUi(); input.value = item.payload; void onGenerate(); }));
 }
 
-function rememberGeneration(payload) {
+function rememberGeneration(payload, type = currentBarcodeType) {
   const items = storageRead(HISTORY_KEY, []).filter((item) => item.payload !== payload);
-  items.unshift({ payload, type: currentBarcodeType, time: Date.now() });
+  items.unshift({ payload, type, time: Date.now() });
   storageWrite(HISTORY_KEY, items.slice(0, 10)); renderHistory();
 }
 
@@ -1930,6 +1931,9 @@ function restoreSettings() {
 
 let livePreviewTimer = 0;
 function markPreviewStale() {
+  btnSaveRecent.disabled = true;
+  btnCopyImage.disabled = true;
+  btnShare.disabled = true;
   if (!lastEncodedPayload) return;
   if (qualityInfo) { qualityInfo.textContent = "Settings changed — preview is updating…"; qualityInfo.dataset.tone = "warning"; }
   btnDl.disabled = true; btnPdf.disabled = true; if (btnSvg) btnSvg.disabled = true;
@@ -1940,6 +1944,7 @@ function scheduleLivePreview() {
 }
 
 async function onGenerate(options = {}) {
+  btnSaveRecent.disabled = true;
   setError("");
   lastEncodedPayload = null;
   if (encodedEl) encodedEl.textContent = "";
@@ -2062,7 +2067,7 @@ async function onGenerate(options = {}) {
         qualityInfo.dataset.tone = "good";
       }
     }
-    rememberGeneration(payload);
+    btnSaveRecent.disabled = false;
     persistSettings();
     announce("Code generated and ready to download.");
   } catch (e) {
@@ -2094,6 +2099,7 @@ function onDownload() {
     a.download = `${downloadBaseName()}.png`;
     a.href = dataUrl;
     a.click();
+    rememberGeneration(lastEncodedPayload);
     announce("PNG downloaded.");
   } catch {
     setError(t("errDownloadFailed"));
@@ -2109,31 +2115,37 @@ function downloadTextFile(text, type, filename) {
 function onDownloadSvg() {
   if (!lastEncodedPayload || !lastSvgText) return setError(t("errGenerateFirst"));
   downloadTextFile(lastSvgText, "image/svg+xml", `${downloadBaseName()}.svg`);
+  rememberGeneration(lastEncodedPayload);
   announce("SVG downloaded.");
 }
 
 async function onCopyImage() {
   if (!lastEncodedPayload || !navigator.clipboard || !globalThis.ClipboardItem) return;
+  const savedPayload = lastEncodedPayload, savedType = currentBarcodeType;
   try {
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
     await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    rememberGeneration(savedPayload, savedType);
     announce("Image copied to clipboard.");
   } catch { setError("Could not copy the image in this browser."); }
 }
 
 async function onShareCode() {
   if (!lastEncodedPayload || typeof navigator.share !== "function") return;
+  const savedPayload = lastEncodedPayload, savedType = currentBarcodeType;
   try {
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
     const file = new File([blob], `${downloadBaseName()}.png`, { type: "image/png" });
     const data = { title: "Barcode Creator Tool", text: lastEncodedPayload, files: [file] };
     if (navigator.canShare && !navigator.canShare({ files: [file] })) delete data.files;
     await navigator.share(data);
+    rememberGeneration(savedPayload, savedType);
   } catch (err) { if (!err || err.name !== "AbortError") setError("Sharing failed."); }
 }
 
 function resetApp() {
   if (!confirm(window.localizeUi("Reset all generator settings and local history?"))) return;
+  btnSaveRecent.disabled = true;
   try { localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(HISTORY_KEY); localStorage.removeItem(SCAN_HISTORY_KEY); } catch { /* ignore */ }
   input.value = ""; barcodeTypeSelect.value = "qr"; modeSelect.value = "url"; shapeSelect.value = "square";
   sizeInput.value = "4"; sizeSlider.value = "4"; errorCorrectionSelect.value = "auto"; quietZoneInput.value = "4";
@@ -2168,6 +2180,7 @@ async function onDownloadPdf() {
     const img = canvas.toDataURL("image/png");
     pdf.addImage(img, "PNG", x, y, widthMm, heightMm, undefined, "FAST");
     pdf.save(`${downloadBaseName()}-a4.pdf`);
+    rememberGeneration(lastEncodedPayload);
   } catch {
     setError(t("errDownloadFailed"));
   }
@@ -2668,6 +2681,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 barcodeTypeSelect.addEventListener("change", () => {
+  btnSaveRecent.disabled = true;
   syncBarcodeTypeUi();
   preview.classList.add("hidden");
   if (encodedEl) encodedEl.textContent = "";
@@ -2686,6 +2700,11 @@ btnPdf.addEventListener("click", () => {
 if (btnSvg) btnSvg.addEventListener("click", onDownloadSvg);
 if (btnCopyImage) btnCopyImage.addEventListener("click", () => { void onCopyImage(); });
 if (btnShare) btnShare.addEventListener("click", () => { void onShareCode(); });
+btnSaveRecent.addEventListener("click", () => {
+  if (!lastEncodedPayload || btnSaveRecent.disabled) return;
+  rememberGeneration(lastEncodedPayload);
+  announce("Saved to Recents.");
+});
 if (btnReset) btnReset.addEventListener("click", resetApp);
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void onGenerate();
