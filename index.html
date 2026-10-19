@@ -29,7 +29,7 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./css/app.css?v=2.8.1" />
+  <link rel="stylesheet" href="./css/app.css?v=2.8.2" />
 </head>
 <body>
   <div class="chrome-stack" id="chromeStack">
@@ -206,13 +206,14 @@
 
       <section class="preview-column">
         <div class="calibrate-row generator-only" aria-label="Screen calibration">
+          <div class="calibration-scroll">
           <div
             id="calibrate-track"
             class="calibrate-track"
             role="slider"
             tabindex="0"
-            aria-valuemin="80"
-            aria-valuemax="900"
+            aria-valuemin="20"
+            aria-valuemax="5000"
             aria-valuenow="189"
             aria-label="Drag the bar's right edge to 5 cm on your ruler"
           >
@@ -220,6 +221,11 @@
               <span class="calibrate-bar-label">5&nbsp;cm</span>
               <span class="calibrate-handle" aria-hidden="true"></span>
             </div>
+          </div>
+          </div>
+          <div class="calibration-adjustments">
+            <button id="calibration-decrease" type="button" class="btn-secondary" aria-label="Shorten calibration bar">−</button>
+            <button id="calibration-increase" type="button" class="btn-secondary" aria-label="Lengthen calibration bar">+</button>
           </div>
           <p id="calibrate-hint" class="calibrate-hint">
             Line up the bar's left edge with 0 on a physical ruler, then drag its right edge to exactly 5&nbsp;cm. Saved for next visit.
@@ -300,7 +306,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.8.1</span>
+    <span id="app-footer-version" class="app-footer-version">v2.8.2</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
@@ -310,7 +316,7 @@
   <script src="./vendor/qrcode.global.js"></script>
   <script src="./vendor/jsbarcode.umd.min.js"></script>
   <script src="./vendor/jspdf.umd.min.js"></script>
-  <script src="./js/translations.js?v=2.8.1"></script>
-  <script src="./js/app-browser.js?v=2.8.1"></script>
+  <script src="./js/translations.js?v=2.8.2"></script>
+  <script src="./js/app-browser.js?v=2.8.2"></script>
 </body>
 </html>

@@ -2,6 +2,8 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["Shorten calibration bar", "Kalibratiebalk korter maken", "Kalibrierungsbalken verkürzen"],
+    ["Lengthen calibration bar", "Kalibratiebalk langer maken", "Kalibrierungsbalken verlängern"],
     ["Hand-drawn", "Handgetekend", "Handgezeichnet"],
     ["Scattered squares", "Speelse vierkantjes", "Verspielte Quadrate"],
     ["Square mosaic", "Mozaïek van vierkantjes", "Quadratmosaik"],
