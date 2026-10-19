@@ -1007,6 +1007,54 @@ const I18N = {
   },
 };
 
+Object.assign(I18N.en, {
+  lead: "Create a QR code or barcode. Add a logo, choose a style, and download your code for print or digital use.",
+  logoHint: "Uses high error correction to keep the code readable. Upload a logo file for the most reliable export.",
+  errDownloadFailed: "Download failed. If you used an online logo, try uploading the image as a file instead.",
+});
+Object.assign(I18N.nl, {
+  pageTitle: "Barcodegenerator", headerTitle: "Barcodegenerator",
+  lead: "Maak een QR-code of barcode. Voeg een logo toe, kies een stijl en download je code voor drukwerk of digitaal gebruik.",
+  shortenHint: "Een kortere link levert een eenvoudigere QR-code op die vaak makkelijker te scannen is.",
+  logoLabel: "Logo in het midden van de QR-code",
+  logoHint: "Gebruikt hoge foutcorrectie om de code leesbaar te houden. Upload een logobestand voor de betrouwbaarste export.",
+  logoSizeLabel: "Maximale breedte of hoogte van het logo (cm)",
+  generate: "Maken", download: "PNG downloaden", downloadPdf: "A4-PDF downloaden",
+  scannerCopy: "Kopiëren", scannerOpenLink: "Link openen", scannerStart: "Scannen starten", scannerStop: "Stoppen",
+  scannerLoadingFallback: "QR-scanner laden…",
+  scannerScanningQrOnly: "Zoeken naar QR-codes… Voor andere barcodes heb je een browser met ingebouwde barcodeherkenning nodig.",
+  scannerPermissionDenied: "Geen toegang tot de camera. Geef toestemming in de browserinstellingen en probeer het opnieuw.",
+  errDownloadFailed: "Downloaden is mislukt. Heb je een online logo gebruikt? Upload de afbeelding dan als bestand en probeer het opnieuw.",
+});
+Object.assign(I18N.de, {
+  lead: "Erstelle einen QR-Code oder Barcode. Füge ein Logo hinzu, wähle einen Stil und lade deinen Code für den Druck oder die digitale Nutzung herunter.",
+  sizeLabel: "Außenmaß (cm)",
+  calibrateHint: "Lege den linken Rand des Balkens bei 0 auf einem Lineal an und ziehe den rechten Rand genau auf 5 cm. Die Einstellung wird für deinen nächsten Besuch gespeichert.",
+  shortenLabel: "Link zuerst kürzen (CleanURI, dann is.gd/v.gd)",
+  shortenHint: "Ein kürzerer Link ergibt einen einfacheren QR-Code, der sich oft leichter scannen lässt.",
+  shortenHintOffline: "Links können offline nicht gekürzt werden.",
+  offlineNotice: "Du bist offline. QR-Codes und Barcodes lassen sich weiterhin erstellen; das Kürzen von Links ist nicht verfügbar.",
+  logoLabel: "Logo in der Mitte des QR-Codes",
+  logoHint: "Verwendet eine hohe Fehlerkorrektur, damit der Code lesbar bleibt. Lade für einen zuverlässigen Export eine Logodatei hoch.",
+  logoSizeLabel: "Maximale Breite oder Höhe des Logos (cm)",
+  hint: "Fehlt bei einer Webadresse das Protokoll, wird https:// ergänzt. Codes und PDF-Dateien werden lokal erstellt. Beim Kürzen wird der Link an CleanURI und gegebenenfalls an is.gd oder v.gd gesendet.",
+  errInvalidAddress: "Bitte gib einen gültigen Link mit http:// oder https:// ein.",
+  errEnterBarcodeValue: "Bitte gib einen Wert für den Barcode ein.",
+  errInvalidBarcodeValue: "Dieser Wert ist für den gewählten Barcode-Typ ungültig.",
+  errLogoUrlInvalid: "Bitte gib eine gültige Logo-Adresse mit http:// oder https:// ein.",
+  errLogoMissing: "Bitte lade eine Logodatei hoch, gib eine Bildadresse ein oder deaktiviere die Logo-Option.",
+  errDownloadFailed: "Der Download ist fehlgeschlagen. Falls du ein Online-Logo verwendet hast, lade das Bild stattdessen als Datei hoch.",
+  errInvalidSize: "Bitte gib eine gültige Größe zwischen 1 und 1000 cm ein.",
+  errPdfTooLarge: "Wähle für den A4-Export eine Größe von höchstens 20 cm.",
+  scannerImage: "Bild auswählen", scannerOpenLink: "Link öffnen",
+  scannerImageMissing: "Kein Code gefunden. Versuche es mit einem schärferen Bild. Dieser Browser unterstützt möglicherweise nur QR-Codes.",
+  scannerLoadingFallback: "QR-Scanner wird geladen…",
+  scannerScanningQrOnly: "Suche nach QR-Codes… Für andere Barcodes ist ein Browser mit integrierter Barcode-Erkennung erforderlich.",
+  scannerNotSupported: "Dein Browser unterstützt das Scannen von Barcodes nicht. Versuche es mit einem anderen Browser.",
+  scannerNeedsHttps: "Der Kamerazugriff erfordert eine HTTPS-Seite oder localhost. Öffne diese App über einen Webserver statt als lokale Datei.",
+  scannerNoCamera: "Auf diesem Gerät wurde keine Kamera gefunden.",
+});
+
 function t(key) {
   return I18N[currentLanguage][key] || I18N.en[key] || key;
 }
@@ -1441,6 +1489,7 @@ function applyTranslations() {
   paintLanguageButtons();
   paintThemeButtons();
   syncBarcodeTypeUi();
+  if (window.refreshUiTranslations) window.refreshUiTranslations();
 }
 
 function updateOnlineState() {
@@ -1904,7 +1953,7 @@ async function onGenerate(options = {}) {
         let accepted = false;
         try { accepted = localStorage.getItem("barcode-creator-shortener-consent") === "yes"; } catch { /* ignore */ }
         if (!accepted) {
-          accepted = confirm("Shortening sends this URL to CleanURI and may fall back to is.gd or v.gd. Do not shorten private or sensitive links. Continue?");
+          accepted = confirm(window.localizeUi("Shortening sends this URL to CleanURI and may fall back to is.gd or v.gd. Do not shorten private or sensitive links. Continue?"));
           if (!accepted) throw new Error("URL shortening cancelled.");
           try { localStorage.setItem("barcode-creator-shortener-consent", "yes"); } catch { /* ignore */ }
         }
@@ -2058,7 +2107,7 @@ async function onShareCode() {
 }
 
 function resetApp() {
-  if (!confirm("Reset all generator settings and local history?")) return;
+  if (!confirm(window.localizeUi("Reset all generator settings and local history?"))) return;
   try { localStorage.removeItem(SETTINGS_KEY); localStorage.removeItem(HISTORY_KEY); localStorage.removeItem(SCAN_HISTORY_KEY); } catch { /* ignore */ }
   input.value = ""; barcodeTypeSelect.value = "qr"; modeSelect.value = "url"; shapeSelect.value = "square";
   sizeInput.value = "4"; sizeSlider.value = "4"; errorCorrectionSelect.value = "auto"; quietZoneInput.value = "4";
@@ -2539,7 +2588,7 @@ if (scannerOpenLink) scannerOpenLink.addEventListener("click", (event) => {
   const href = scannerOpenLink.href;
   if (!href) return;
   const host = new URL(href).hostname;
-  if (!confirm(`Open ${host}?\n\n${href}`)) event.preventDefault();
+  if (!confirm(window.localizeUi(`Open ${host}?\n\n${href}`))) event.preventDefault();
 });
 
 // Topbar shortcut: jump straight to scanner mode. Dispatch a real

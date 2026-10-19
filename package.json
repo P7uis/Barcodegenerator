@@ -1,11 +1,11 @@
 {
   "name": "barcode-creator-tool",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 4173",
-    "test": "node tests/static-checks.mjs",
+    "test": "node tests/static-checks.mjs && node tests/translations.mjs",
     "check": "node --check js/app-browser.js && npm test"
   }
 }
