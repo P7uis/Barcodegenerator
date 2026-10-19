@@ -2,6 +2,10 @@
 // Each row is [English, Dutch, German]. Placeholders remain unchanged.
 (() => {
   const rows = [
+    ["Hand-drawn", "Handgetekend", "Handgezeichnet"],
+    ["Scattered squares", "Speelse vierkantjes", "Verspielte Quadrate"],
+    ["Square mosaic", "Mozaïek van vierkantjes", "Quadratmosaik"],
+    ["Connected rounded", "Verbonden en afgerond", "Verbunden und abgerundet"],
     ["Inward leaf", "Bladvorm naar het midden", "Zur Mitte gerichtete Blattform"],
     ["Dots", "Stippen", "Punkte"],
     ["Corner frame", "Rand van de hoekmarkeringen", "Rahmen der Eckmarkierungen"],

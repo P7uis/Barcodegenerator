@@ -339,6 +339,33 @@ function isInFinder(x, y, size) {
 // One set of vector paths is used by both canvas and SVG exports.
 function qrShapePath(shape, x, y, size, corner = 0) {
   const right = x + size, bottom = y + size, midX = x + size / 2, midY = y + size / 2;
+  if (shape === "hand-drawn") {
+    // Deterministic rough edges: exports keep the same outline as the preview.
+    // The small variation preserves a substantial, continuous finder ring.
+    const edges = [[0, 0, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 0, 0]];
+    let path = "";
+    for (let edge = 0; edge < edges.length; edge++) {
+      const [ax, ay, bx, by] = edges[edge];
+      for (let step = 0; step < 24; step++) {
+        const t = step / 24, index = edge * 24 + step;
+        const noiseX = Math.sin(index * 71.31 + 2.7) * .014;
+        const noiseY = Math.cos(index * 43.17 + 1.3) * .014;
+        path += `${path ? "L" : "M"}${x + size * (ax + (bx - ax) * t + noiseX)} ${y + size * (ay + (by - ay) * t + noiseY)}`;
+      }
+    }
+    return path + "Z";
+  }
+  if (shape === "scattered") {
+    const seed = Math.abs((Math.round(x / size * 1000) * 73 + Math.round(y / size * 1000) * 137 + 19) % 29);
+    const angle = (seed - 14) * Math.PI / 180;
+    const half = size * .43;
+    return [[-half, -half], [half, -half], [half, half], [-half, half]].map(([dx, dy], index) => `${index ? "L" : "M"}${midX + dx * Math.cos(angle) - dy * Math.sin(angle)} ${midY + dx * Math.sin(angle) + dy * Math.cos(angle)}`).join("") + "Z";
+  }
+  if (shape === "square-mosaic") {
+    let path = "";
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) path += qrShapePath("scattered", x + col * size / 3, y + row * size / 3, size * .37);
+    return path;
+  }
   if (shape === "leaf-inward") {
     const r = size * .48;
     const [tl, tr, br, bl] = corner === 1 ? [r, r, r, 0] : corner === 2 ? [r, 0, r, r] : [r, r, 0, r];
@@ -382,6 +409,19 @@ function qrShapePath(shape, x, y, size, corner = 0) {
   }
   const r = size * (shape === "extra-rounded" ? .42 : shape === "rounded" ? .24 : 0);
   return `M${x + r} ${y}H${right - r}Q${right} ${y} ${right} ${y + r}V${bottom - r}Q${right} ${bottom} ${right - r} ${bottom}H${x + r}Q${x} ${bottom} ${x} ${bottom - r}V${y + r}Q${x} ${y} ${x + r} ${y}Z`;
+}
+
+function qrBodyPath(modules, col, row, x, y, size, shape) {
+  if (shape !== "connected-rounded") return qrShapePath(shape, x, y, size);
+  const dark = (c, r) => c >= 0 && r >= 0 && c < modules.size && r < modules.size && isDark(modules, c, r);
+  const up = dark(col, row - 1), down = dark(col, row + 1), left = dark(col - 1, row), right = dark(col + 1, row);
+  if (!up && !down && !left && !right) return qrShapePath("circle", x, y, size);
+  const radius = size / 2;
+  const tl = !up && !left ? radius : 0, tr = !up && !right ? radius : 0;
+  const br = !down && !right ? radius : 0, bl = !down && !left ? radius : 0;
+  const endX = x + size, endY = y + size;
+  // Keep shared edges flush; round only exposed corners of the connected body.
+  return `M${x + tl} ${y}H${endX - tr}Q${endX} ${y} ${endX} ${y + tr}V${endY - br}Q${endX} ${endY} ${endX - br} ${endY}H${x + bl}Q${x} ${endY} ${x} ${endY - bl}V${y + tl}Q${x} ${y} ${x + tl} ${y}Z`;
 }
 
 function drawModule(ctx, px, py, unit, shape) {
@@ -454,7 +494,7 @@ function paintStyledQr(canvasEl, qrData, width, margin, shape, logoImage, logoSi
       const px = (x + margin) * unit;
       const py = (y + margin) * unit;
       if (rectIntersectsLogoMask(logoMask, px, py, px + unit, py + unit)) continue;
-      drawModule(ctx, px, py, unit, shape);
+      ctx.fill(new Path2D(qrBodyPath(modules, x, y, px, py, unit, shape)));
     }
   }
 
@@ -1920,7 +1960,10 @@ function shapeThumbnail(shape, kind) {
   if (kind === "frame") {
     path = qrShapePath(shape, 1, 1, 7) + qrShapePath(shape, 2, 2, 5);
   } else if (kind === "centre") path = qrShapePath(shape, 1.5, 1.5, 6);
-  else {
+  else if (shape === "connected-rounded") {
+    const sample = { size: 3, get: (x, y) => [[1, 0, 1], [1, 1, 1], [0, 0, 1]][y][x] };
+    for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) if (sample.get(x, y)) path += qrBodyPath(sample, x, y, 1 + x * 2.3, 1 + y * 2.3, 2.3, shape);
+  } else {
     for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) path += qrShapePath(shape, 1 + x * 2.4, 1 + y * 2.4, 2);
   }
   const element = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -1933,6 +1976,10 @@ function initShapePickers() {
   const names = { square: "Square", rounded: "Rounded", dots: "Dots", circle: "Circular", "extra-rounded": "Extra rounded", diamond: "Diamond", beveled: "Cut corners", leaf: "Leaf", "leaf-reverse": "Reverse leaf", horizontal: "Horizontal bars", vertical: "Vertical bars", "dot-grid": "Nine dots", "horizontal-bars": "Three horizontal bars", "vertical-bars": "Three vertical bars" };
   for (const [select, kind] of [[shapeSelect, "body"], [cornerShapeSelect, "frame"], [centreShapeSelect, "centre"]]) {
     names["leaf-inward"] = "Inward leaf";
+    names["connected-rounded"] = "Connected rounded";
+    names.scattered = "Scattered squares";
+    names["square-mosaic"] = "Square mosaic";
+    names["hand-drawn"] = "Hand-drawn";
     const picker = document.createElement("div"); picker.className = "shape-picker";
     const button = document.createElement("button"); button.type = "button"; button.className = "shape-picker-toggle";
     button.id = `${select.id}-picker`; button.setAttribute("aria-haspopup", "listbox"); button.setAttribute("aria-expanded", "false");
@@ -2018,7 +2065,7 @@ function makeQrSvg(qrData, margin, foreground, background, shape = "square", cor
   let content = "";
   for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
     if (!isDark(qrData.modules, x, y) || isInFinder(x, y, size)) continue;
-    content += `<path d="${qrShapePath(shape, x + margin, y + margin, 1)}" fill="${foreground}"/>`;
+    content += `<path d="${qrBodyPath(qrData.modules, x, y, x + margin, y + margin, 1, shape)}" fill="${foreground}"/>`;
   }
   for (const [x, y] of [[margin, margin], [margin + size - 7, margin], [margin, margin + size - 7]]) {
     for (const [offset, width, style, colour] of [[0, 7, cornerShape, foreground], [1, 5, cornerShape, background], [2, 3, centreShape, foreground]]) {

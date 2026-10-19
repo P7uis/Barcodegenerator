@@ -29,7 +29,7 @@
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./css/app.css?v=2.7.1" />
+  <link rel="stylesheet" href="./css/app.css?v=2.8.0" />
 </head>
 <body>
   <div class="chrome-stack" id="chromeStack">
@@ -242,11 +242,11 @@
               </div>
               <div class="field">
                 <label for="corner-shape">Corner frame</label>
-                <select id="corner-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option><option value="extra-rounded">Extra rounded</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="leaf-reverse">Reverse leaf</option><option value="leaf-inward">Inward leaf</option></select>
+                <select id="corner-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option><option value="extra-rounded">Extra rounded</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="leaf-reverse">Reverse leaf</option><option value="leaf-inward">Inward leaf</option><option value="hand-drawn">Hand-drawn</option></select>
               </div>
               <div class="field">
                 <label for="centre-shape">Corner centre</label>
-                <select id="centre-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option><option value="extra-rounded">Extra rounded</option><option value="diamond">Diamond</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="leaf-reverse">Reverse leaf</option><option value="dot-grid">Nine dots</option><option value="horizontal-bars">Three horizontal bars</option><option value="vertical-bars">Three vertical bars</option><option value="leaf-inward">Inward leaf</option></select>
+                <select id="centre-shape"><option value="square">Square</option><option value="rounded">Rounded</option><option value="circle">Circular</option><option value="extra-rounded">Extra rounded</option><option value="diamond">Diamond</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="leaf-reverse">Reverse leaf</option><option value="dot-grid">Nine dots</option><option value="horizontal-bars">Three horizontal bars</option><option value="vertical-bars">Three vertical bars</option><option value="leaf-inward">Inward leaf</option><option value="square-mosaic">Square mosaic</option></select>
               </div>
               <div class="field">
                 <label id="shape-label" for="shape-select">Dot shape</label>
@@ -254,6 +254,8 @@
                   <option id="shape-opt-square" value="square">Square</option>
                   <option id="shape-opt-rounded" value="rounded">Rounded</option>
                   <option id="shape-opt-dots" value="dots">Dots</option>
+                  <option value="connected-rounded">Connected rounded</option>
+                  <option value="scattered">Scattered squares</option>
                   <option value="extra-rounded">Extra rounded</option><option value="diamond">Diamond</option><option value="beveled">Cut corners</option><option value="leaf">Leaf</option><option value="horizontal">Horizontal bars</option><option value="vertical">Vertical bars</option>
                 </select>
               </div>
@@ -297,7 +299,7 @@
     push back.
   -->
   <footer class="app-footer" aria-label="App info">
-    <span id="app-footer-version" class="app-footer-version">v2.7.1</span>
+    <span id="app-footer-version" class="app-footer-version">v2.8.0</span>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
     <a class="app-footer-link" href="./LICENSE" title="GNU General Public License v3.0">GPL&nbsp;v3</a>
     <span class="app-footer-sep" aria-hidden="true">&middot;</span>
@@ -307,7 +309,7 @@
   <script src="./vendor/qrcode.global.js"></script>
   <script src="./vendor/jsbarcode.umd.min.js"></script>
   <script src="./vendor/jspdf.umd.min.js"></script>
-  <script src="./js/translations.js?v=2.7.1"></script>
-  <script src="./js/app-browser.js?v=2.7.1"></script>
+  <script src="./js/translations.js?v=2.8.0"></script>
+  <script src="./js/app-browser.js?v=2.8.0"></script>
 </body>
 </html>

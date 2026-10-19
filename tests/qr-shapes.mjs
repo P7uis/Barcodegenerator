@@ -14,6 +14,7 @@ const bodies = options("shape-select"), frames = options("corner-shape"), centre
 const all = [...new Set([...bodies, ...frames, ...centres])];
 const paths = new Set();
 for (const shape of all) {
+  if (shape === "connected-rounded") continue; // Depends on neighbouring modules.
   const path = context.qrShapePath(shape, 2, 3, 7);
   assert.ok(path.startsWith("M")); assert.ok(!/NaN|undefined|Infinity/.test(path));
   assert.ok(!paths.has(path), `${shape} must have distinct geometry`); paths.add(path);
@@ -32,4 +33,8 @@ for (const [body, frame, centre] of [...bodies.map((shape) => [shape, "square", 
   }
 }
 assert.equal(new Set([0, 1, 2].map((corner) => context.qrShapePath("leaf-inward", 0, 0, 7, corner))).size, 3, "inward leaves must use three different orientations");
+const isolated = { size: 3, get: (x, y) => x === 1 && y === 1 };
+assert.equal(context.qrBodyPath(isolated, 1, 1, 0, 0, 1, "connected-rounded"), context.qrShapePath("circle", 0, 0, 1), "isolated modules must remain round");
+const joined = { size: 3, get: (x, y) => y === 1 };
+assert.notEqual(context.qrBodyPath(joined, 1, 1, 0, 0, 1, "connected-rounded"), context.qrShapePath("circle", 0, 0, 1), "neighbouring modules must connect");
 console.log(`QR shape checks passed (${bodies.length} body, ${frames.length} frame, ${centres.length} centre styles).`);
