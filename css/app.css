@@ -533,6 +533,8 @@ label {
 .advanced-grid { margin-top: 10px; }
 .structured-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: 9px; }
 .structured-fields .field { margin: 0; }
+.structured-fields small { color: var(--muted); line-height: 1.4; }
+.structured-fields .wifi-hidden-label { text-transform: none; letter-spacing: 0; color: var(--text); display: flex; align-items: center; gap: 8px; min-height: 44px; }
 input[type="color"] { min-height: 42px; padding: 4px; }
 .quality-info { margin-top: 9px; padding: 9px 12px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); color: var(--muted); font-size: .82rem; line-height: 1.45; }
 .quality-info[data-tone="warning"] { color: #8a5200; background: #fff4d6; }

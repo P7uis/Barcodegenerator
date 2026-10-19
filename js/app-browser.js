@@ -1647,7 +1647,7 @@ function escapeAttr(s) {
 }
 
 const STRUCTURED_SCHEMAS = {
-  wifi: [["ssid", "Network name", "text"], ["password", "Password", "text"], ["security", "Security (WPA/WEP/nopass)", "text"], ["hidden", "Hidden network (true/false)", "text"]],
+  wifi: [["ssid", "Network name", "text"], ["password", "Wi-Fi password", "text"], ["security", "Network security", "select"], ["hidden", "My network is hidden", "checkbox"]],
   vcard: [["name", "Full name", "text"], ["organisation", "Organisation", "text"], ["phone", "Phone", "tel"], ["email", "Email", "email"], ["website", "Website", "url"]],
   email: [["to", "Recipient", "email"], ["subject", "Subject", "text"], ["body", "Message", "text"]],
   phone: [["phone", "Phone number", "tel"]],
@@ -1658,6 +1658,7 @@ const STRUCTURED_SCHEMAS = {
 
 function structuredValue(name) {
   const el = structuredFields && structuredFields.querySelector(`[data-structured="${name}"]`);
+  if (el && el.type === "checkbox") return String(el.checked);
   return el ? String(el.value || "").trim() : "";
 }
 
@@ -1666,7 +1667,11 @@ function escapeVcard(value) { return String(value).replace(/\\/g, "\\\\").replac
 function compactDate(value) { return value ? value.replace(/[-:]/g, "").replace("T", "T") + "00" : ""; }
 
 function buildStructuredPayload(mode) {
-  if (mode === "wifi") return `WIFI:T:${escapeWifi(structuredValue("security") || "WPA")};S:${escapeWifi(structuredValue("ssid"))};P:${escapeWifi(structuredValue("password"))};H:${structuredValue("hidden") === "true" ? "true" : "false"};;`;
+  if (mode === "wifi") {
+    const security = structuredValue("security") || "WPA";
+    const password = security === "nopass" ? "" : structuredValue("password");
+    return `WIFI:T:${escapeWifi(security)};S:${escapeWifi(structuredValue("ssid"))};P:${escapeWifi(password)};H:${structuredValue("hidden") === "true" ? "true" : "false"};;`;
+  }
   if (mode === "vcard") return ["BEGIN:VCARD", "VERSION:3.0", `FN:${escapeVcard(structuredValue("name"))}`, `ORG:${escapeVcard(structuredValue("organisation"))}`, `TEL:${escapeVcard(structuredValue("phone"))}`, `EMAIL:${escapeVcard(structuredValue("email"))}`, `URL:${escapeVcard(structuredValue("website"))}`, "END:VCARD"].filter((line) => !/:$/.test(line)).join("\n");
   if (mode === "email") return `mailto:${encodeURIComponent(structuredValue("to"))}?subject=${encodeURIComponent(structuredValue("subject"))}&body=${encodeURIComponent(structuredValue("body"))}`;
   if (mode === "phone") return `tel:${structuredValue("phone")}`;
@@ -1684,8 +1689,22 @@ function renderStructuredFields() {
   // inputs (including their values and focus) unless the content type changes.
   if (structuredFields.dataset.mode === modeSelect.value) return;
   structuredFields.dataset.mode = modeSelect.value;
-  structuredFields.innerHTML = schema ? schema.map(([name, label, type]) => `<div class="field"><label for="structured-${name}">${escapeHtml(label)}</label><input id="structured-${name}" data-structured="${name}" type="${type}" ${type === "number" ? 'step="any"' : ""}></div>`).join("") : "";
-  structuredFields.querySelectorAll("input").forEach((el) => el.addEventListener("input", scheduleLivePreview));
+  structuredFields.innerHTML = schema ? schema.map(([name, label, type]) => {
+    if (type === "select") return `<div class="field"><label for="structured-${name}">${escapeHtml(label)}</label><select id="structured-${name}" data-structured="${name}" aria-describedby="wifi-security-help"><option value="WPA">Password protected (WPA / WPA2)</option><option value="WEP">Older network (WEP)</option><option value="nopass">No password (open network)</option></select><small id="wifi-security-help">Most home and school networks use the first option. Check your router settings if unsure.</small></div>`;
+    if (type === "checkbox") return `<div class="field"><label class="wifi-hidden-label" for="structured-${name}"><input id="structured-${name}" data-structured="${name}" type="checkbox" aria-describedby="wifi-hidden-help"> ${escapeHtml(label)}</label><small id="wifi-hidden-help">Leave unchecked unless your network is deliberately hidden from the Wi-Fi list.</small></div>`;
+    return `<div class="field"><label for="structured-${name}">${escapeHtml(label)}</label><input id="structured-${name}" data-structured="${name}" type="${type}" ${type === "number" ? 'step="any"' : ""}></div>`;
+  }).join("") : "";
+  structuredFields.querySelectorAll("input, select").forEach((el) => el.addEventListener("input", () => { syncWifiPassword(); scheduleLivePreview(); }));
+  syncWifiPassword();
+}
+
+function syncWifiPassword() {
+  if (modeSelect.value !== "wifi") return;
+  const password = structuredFields.querySelector('[data-structured="password"]');
+  if (!password) return;
+  const open = structuredValue("security") === "nopass";
+  password.disabled = open;
+  password.closest(".field").classList.toggle("is-hidden", open);
 }
 
 function selectedEcc(hasLogo) {
