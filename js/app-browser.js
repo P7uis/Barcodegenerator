@@ -1808,18 +1808,35 @@ function initLocationMap() {
     message.textContent = `Pin placed at ${latInput.value}, ${lngInput.value}.`; draw(); scheduleLivePreview();
   }
   map.addEventListener("pointerdown", (e) => {
-    if (e.target.closest("button, a")) return;
-    dragging = { x: e.clientX, y: e.clientY, centre: mapProject(centre.latitude, centre.longitude, zoom) };
+    if (e.button !== 0 || dragging || e.target.closest("button, a")) return;
+    dragging = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, centre: mapProject(centre.latitude, centre.longitude, zoom) };
     map.setPointerCapture(e.pointerId);
   });
-  map.addEventListener("pointerup", (e) => {
-    if (!dragging) return;
+  map.addEventListener("pointermove", (e) => {
+    if (!dragging || dragging.id !== e.pointerId) return;
     const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
-    if (Math.hypot(dx, dy) > 5) centre = mapUnproject(dragging.centre.x - dx, Math.max(0, Math.min(256 * Math.pow(2, zoom), dragging.centre.y - dy)), zoom);
-    else { const rect = map.getBoundingClientRect(); choose(mapUnproject(dragging.centre.x + e.clientX - rect.left - rect.width / 2, dragging.centre.y + e.clientY - rect.top - rect.height / 2, zoom)); }
-    dragging = null; draw();
+    if (Math.hypot(dx, dy) > 5) dragging.moved = true;
+    if (!dragging.moved) return;
+    map.classList.add("is-dragging");
+    tiles.style.transform = `translate(${dx}px, ${dy}px)`;
+    pin.style.marginLeft = `${dx}px`; pin.style.marginTop = `${dy}px`;
   });
-  map.addEventListener("pointercancel", () => { dragging = null; });
+  function finishDrag(e, cancelled = false) {
+    if (!dragging || dragging.id !== e.pointerId) return;
+    const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
+    if (!cancelled && (dragging.moved || Math.hypot(dx, dy) > 5)) centre = mapUnproject(dragging.centre.x - dx, Math.max(0, Math.min(256 * Math.pow(2, zoom), dragging.centre.y - dy)), zoom);
+    else if (!cancelled) { const rect = map.getBoundingClientRect(); choose(mapUnproject(dragging.centre.x + e.clientX - rect.left - rect.width / 2, dragging.centre.y + e.clientY - rect.top - rect.height / 2, zoom)); }
+    dragging = null;
+    tiles.style.transform = ""; pin.style.marginLeft = ""; pin.style.marginTop = "";
+    map.classList.remove("is-dragging");
+    if (map.hasPointerCapture(e.pointerId)) map.releasePointerCapture(e.pointerId);
+    draw();
+  }
+  map.addEventListener("pointerup", (e) => {
+    finishDrag(e);
+  });
+  map.addEventListener("pointercancel", (e) => finishDrag(e, true));
+  map.addEventListener("lostpointercapture", (e) => finishDrag(e, true));
   wrapper.querySelectorAll("[data-map-zoom]").forEach((button) => button.addEventListener("click", () => { zoom = Math.max(1, Math.min(19, zoom + Number(button.dataset.mapZoom))); draw(); }));
   map.addEventListener("keydown", (e) => {
     if (e.target !== map) return;

@@ -537,6 +537,8 @@ label {
 .location-map-picker p { font-size: .85rem; margin: 0 0 8px; }
 .location-map { position: relative; height: 280px; overflow: hidden; border: 1px solid var(--border); border-radius: 9px; background: #dce4e7; cursor: crosshair; touch-action: none; }
 .map-tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; pointer-events: none; }
+.location-map { cursor: grab; user-select: none; }
+.location-map.is-dragging { cursor: grabbing; }
 .map-pin { position: absolute; transform: translate(-50%, -100%); font-size: 32px; line-height: 1; pointer-events: none; }
 .map-buttons { position: absolute; top: 8px; left: 8px; display: grid; gap: 4px; }
 .map-buttons button { background: var(--surface); color: var(--text); min-width: 44px; min-height: 44px; }
