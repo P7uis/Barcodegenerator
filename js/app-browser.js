@@ -1435,7 +1435,7 @@ function syncBarcodeTypeUi() {
     el.classList.toggle("is-hidden", !isQr);
   }
   for (const el of generatorOnlyElements) {
-    el.classList.toggle("is-hidden", isScanner);
+    el.classList.toggle("is-hidden", isScanner || (el.classList.contains("qr-only") && !isQr));
   }
   for (const el of scannerOnlyElements) {
     el.classList.toggle("is-hidden", !isScanner);
@@ -2814,6 +2814,9 @@ document.addEventListener("visibilitychange", () => {
 
 barcodeTypeSelect.addEventListener("change", () => {
   btnSaveRecent.disabled = true;
+  btnSvg.disabled = true;
+  btnCopyImage.disabled = true;
+  btnShare.disabled = true;
   syncBarcodeTypeUi();
   preview.classList.add("hidden");
   if (encodedEl) encodedEl.textContent = "";
