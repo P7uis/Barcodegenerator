@@ -29,7 +29,7 @@ assert.equal(count(index, "<!DOCTYPE html>"), 1, "index.html must contain exactl
 assert.match(index, /<script src="\.\/vendor\/qrcode\.global\.js"><\/script>/, "index.html must load the file-compatible QR bundle");
 assert.match(index, /<script src="\.\/vendor\/jsbarcode\.umd\.min\.js"><\/script>/, "index.html must load the file-compatible JsBarcode bundle");
 assert.match(index, /<script src="\.\/vendor\/jspdf\.umd\.min\.js"><\/script>/, "index.html must load the file-compatible PDF bundle");
-assert.match(index, /<script src="\.\/js\/app-browser\.js"><\/script>/, "index.html must load the file-compatible browser app");
+assert.match(index, /<script src="\.\/js\/app-browser\.js\?v=[\d.]+"><\/script>/, "index.html must load the versioned file-compatible browser app");
 assert.match(index, /<link rel="manifest" href="\.\/manifest\.webmanifest" \/>/, "index.html must link the PWA manifest");
 assert.match(index, /id="offline-banner"/, "index.html must expose the offline status banner");
 assert.match(index, /id="barcode-type"/, "index.html must expose the barcode type dropdown");
